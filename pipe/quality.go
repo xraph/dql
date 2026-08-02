@@ -469,6 +469,10 @@ func (o *sampleOp) Apply(_ context.Context, in []dsl.Row) ([]dsl.Row, error) {
 		if seed == 0 {
 			seed = time.Now().UnixNano()
 		}
+		// #nosec G404 -- sampling rows for a query result, not generating a
+		// secret. The seed is deliberately caller-supplied so a sample is
+		// reproducible across runs; a cryptographic generator cannot be seeded
+		// and would make the operator's Seed option meaningless.
 		r := rand.New(rand.NewSource(seed))
 		// Reservoir sampling.
 		out := make([]dsl.Row, target)
