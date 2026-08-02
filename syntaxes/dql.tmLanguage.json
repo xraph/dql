@@ -1,0 +1,94 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "dql",
+  "scopeName": "source.dql",
+  "fileTypes": ["dql"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#from" },
+    { "include": "#stages" },
+    { "include": "#keywords" },
+    { "include": "#operators" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-dash.dql",
+          "match": "--.*$"
+        },
+        {
+          "name": "comment.block.dql",
+          "begin": "\\{-",
+          "end": "-\\}"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.dql",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        { "name": "constant.character.escape.dql", "match": "\\\\." }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        { "name": "constant.numeric.float.dql", "match": "\\b\\d+\\.\\d+\\b" },
+        { "name": "constant.numeric.integer.dql", "match": "\\b\\d+\\b" }
+      ]
+    },
+    "from": {
+      "match": "^\\s*(from)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "keyword.control.dql" },
+        "2": { "name": "entity.name.type.dataset.dql" }
+      }
+    },
+    "stages": {
+      "match": "(?<=\\|)\\s*(where|filter|select|computed|order_by|orderBy|group_by|groupBy|aggregate|having|limit|offset|join|distinct|expand|viz|pipe)\\b",
+      "captures": {
+        "1": { "name": "keyword.operator.stage.dql" }
+      }
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.dql",
+          "match": "\\b(from|as|asc|desc|on|inner|left|right|full|cross)\\b"
+        },
+        {
+          "name": "constant.language.dql",
+          "match": "\\b(true|false|null)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.dql",
+          "match": "==|!=|<=|>=|<|>|\\bin\\b|\\bnot_in\\b|\\blike\\b|\\bnot_like\\b|\\bbetween\\b|\\bis_null\\b|\\bis_not_null\\b"
+        },
+        {
+          "name": "keyword.operator.logical.dql",
+          "match": "&&|\\|\\||!|\\band\\b|\\bor\\b|\\bnot\\b"
+        },
+        {
+          "name": "keyword.operator.pipe.dql",
+          "match": "\\|"
+        },
+        {
+          "name": "keyword.operator.arithmetic.dql",
+          "match": "\\+|-|\\*|/|%"
+        }
+      ]
+    },
+    "identifiers": {
+      "name": "variable.other.dql",
+      "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+    }
+  }
+}

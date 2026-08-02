@@ -109,6 +109,25 @@ type ExprEvaluator interface {
 DQL has been in production use as an embedded query engine before being
 published here as a standalone project. The document format is stable.
 
+## Editor support
+
+Highlighting and language intelligence both ship with the language, so an
+editor needs no bespoke client code:
+
+| Want | Use |
+|------|-----|
+| Syntax highlighting | [`syntaxes/`](syntaxes/) — TextMate grammar, scope `source.dql` |
+| Completion, hover, diagnostics | [`cmd/dql-lsp`](cmd/dql-lsp) — a Language Server Protocol server |
+| To build your own | [`lang`](lang/) — the same features as plain functions |
+
+```bash
+go install github.com/xraph/dql/cmd/dql-lsp@latest
+```
+
+The server works on a file on disk with nothing else running. A host that knows
+more — which datasets exist, which functions are registered — passes that in and
+gets richer completions; without it, the language itself is still there.
+
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE), [NOTICE](NOTICE), and
