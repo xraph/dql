@@ -159,7 +159,7 @@ var filterMeta = OpMetadata{
 				"Conditions a row must satisfy to be kept. Use simple `{field, op, value}` shape for SQL-pushable filters, or `{expr: \"…\"}` for DTL expressions evaluated in-memory.",
 			),
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"where"},
 	},
 	Examples: []OpExample{
@@ -194,7 +194,7 @@ var projectMeta = OpMetadata{
 				"items":       map[string]any{"type": "string", "x-dql-input": InputKindColumn},
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"select", "drop"},
 	},
 	Examples: []OpExample{
@@ -219,10 +219,10 @@ var renameMeta = OpMetadata{
 				"description":          "Object whose keys are the existing column names and whose values are the new names. Pairs not listed are left untouched.",
 				"type":                 "object",
 				"additionalProperties": map[string]any{"type": "string"},
-				"x-dql-input":       InputKindColumnRenameMap,
+				"x-dql-input":          InputKindColumnRenameMap,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"map"},
 	},
 	Examples: []OpExample{
@@ -248,7 +248,7 @@ var dropMeta = OpMetadata{
 				"minItems":    1,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"columns"},
 	},
 	Examples: []OpExample{
@@ -267,22 +267,22 @@ var computeMeta = OpMetadata{
 		"required": []string{"as"},
 		"properties": map[string]any{
 			"as": map[string]any{
-				"title":          "Output column name",
-				"description":    "Column to write the computed value into. Overwrites any existing column with the same name.",
-				"type":           "string",
+				"title":       "Output column name",
+				"description": "Column to write the computed value into. Overwrites any existing column with the same name.",
+				"type":        "string",
 				"x-dql-input": InputKindColumnOutput,
 			},
 			"expr": map[string]any{
-				"title":                  "DTL expression",
-				"description":            "DTL expression evaluated against each row. Used when `kind` is `expr`.",
-				"type":                   "string",
+				"title":               "DTL expression",
+				"description":         "DTL expression evaluated against each row. Used when `kind` is `expr`.",
+				"type":                "string",
 				"x-dql-input":         InputKindDTLExpression,
 				"x-dql-required-when": map[string]any{"kind": []string{"expr", ""}},
 			},
 			"formula": map[string]any{
-				"title":                  "Excel-style formula",
-				"description":            "Spreadsheet formula evaluated against each row. Used when `kind` is `formula`.",
-				"type":                   "string",
+				"title":               "Excel-style formula",
+				"description":         "Spreadsheet formula evaluated against each row. Used when `kind` is `formula`.",
+				"type":                "string",
 				"x-dql-input":         InputKindFormula,
 				"x-dql-required-when": map[string]any{"kind": []string{"formula"}},
 			},
@@ -294,7 +294,7 @@ var computeMeta = OpMetadata{
 				"default":     "expr",
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"as", "kind", "expr", "formula"},
 	},
 	Examples: []OpExample{
@@ -314,21 +314,21 @@ var flattenMeta = OpMetadata{
 		"required": []string{"field"},
 		"properties": map[string]any{
 			"field": map[string]any{
-				"title":          "Array column",
-				"description":    "Column whose array values are exploded into separate rows.",
-				"type":           "string",
+				"title":       "Array column",
+				"description": "Column whose array values are exploded into separate rows.",
+				"type":        "string",
 				"x-dql-input": InputKindColumn,
 			},
 			"as": map[string]any{
-				"title":          "Element column",
-				"description":    "Optional. Column name to store each element under. When unset, the element replaces the array column on each row.",
-				"type":           "string",
+				"title":       "Element column",
+				"description": "Optional. Column name to store each element under. When unset, the element replaces the array column on each row.",
+				"type":        "string",
 				"x-dql-input": InputKindColumnOutput,
 			},
 			"indexAs": map[string]any{
-				"title":          "Index column",
-				"description":    "Optional. Column name to store the element's 0-based index in the source array.",
-				"type":           "string",
+				"title":       "Index column",
+				"description": "Optional. Column name to store the element's 0-based index in the source array.",
+				"type":        "string",
 				"x-dql-input": InputKindColumnOutput,
 			},
 			"preserveEmpty": map[string]any{
@@ -338,7 +338,7 @@ var flattenMeta = OpMetadata{
 				"default":     false,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"field", "as", "indexAs", "preserveEmpty"},
 	},
 	Examples: []OpExample{
@@ -362,7 +362,7 @@ var distinctMeta = OpMetadata{
 				"items":       map[string]any{"type": "string", "x-dql-input": InputKindColumn},
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"by"},
 	},
 }
@@ -385,7 +385,7 @@ var sortMeta = OpMetadata{
 				"minItems":    1,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"by"},
 	},
 	Examples: []OpExample{
@@ -411,7 +411,7 @@ var limitMeta = OpMetadata{
 				"minimum":     0,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"n"},
 	},
 }
@@ -432,7 +432,7 @@ var skipMeta = OpMetadata{
 				"minimum":     0,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"n"},
 	},
 }
@@ -455,7 +455,7 @@ var groupByMeta = OpMetadata{
 				"minItems":    1,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"keys"},
 	},
 }
@@ -484,7 +484,7 @@ var aggregateMeta = OpMetadata{
 				"minItems":    1,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"keys", "aggs"},
 	},
 }
@@ -518,9 +518,9 @@ var windowMeta = OpMetadata{
 				"items":       refSchema("OrderByClause"),
 			},
 			"field": map[string]any{
-				"title":                  "Source column",
-				"description":            "Column the window function reads. Required for `lag`/`lead`/`first_value`/`last_value`; ignored for ranking functions.",
-				"type":                   "string",
+				"title":               "Source column",
+				"description":         "Column the window function reads. Required for `lag`/`lead`/`first_value`/`last_value`; ignored for ranking functions.",
+				"type":                "string",
 				"x-dql-input":         InputKindColumn,
 				"x-dql-required-when": map[string]any{"fn": []string{"lag", "lead", "first_value", "last_value"}},
 			},
@@ -531,9 +531,9 @@ var windowMeta = OpMetadata{
 				"minimum":     0,
 			},
 			"as": map[string]any{
-				"title":          "Output column",
-				"description":    "Column to write the window value into.",
-				"type":           "string",
+				"title":       "Output column",
+				"description": "Column to write the window value into.",
+				"type":        "string",
 				"x-dql-input": InputKindColumnOutput,
 			},
 			"default": map[string]any{
@@ -541,7 +541,7 @@ var windowMeta = OpMetadata{
 				"description": "Value to emit when the window function falls outside the partition (e.g. `lag(1)` on the first row).",
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"fn", "partitionBy", "orderBy", "field", "offset", "default", "as"},
 	},
 }
@@ -557,9 +557,9 @@ var lookupMeta = OpMetadata{
 		"required": []string{"dataset", "on"},
 		"properties": map[string]any{
 			"dataset": map[string]any{
-				"title":          "Right-side dataset",
-				"description":    "Dataset name to fetch the join's right side from.",
-				"type":           "string",
+				"title":       "Right-side dataset",
+				"description": "Dataset name to fetch the join's right side from.",
+				"type":        "string",
 				"x-dql-input": InputKindDataset,
 			},
 			"on": map[string]any{
@@ -574,9 +574,9 @@ var lookupMeta = OpMetadata{
 				"x-dql-property-order": []string{"left", "right"},
 			},
 			"as": map[string]any{
-				"title":          "Output column",
-				"description":    "Optional. When set, the matched right-side row is nested under this column instead of being flattened into the left row.",
-				"type":           "string",
+				"title":       "Output column",
+				"description": "Optional. When set, the matched right-side row is nested under this column instead of being flattened into the left row.",
+				"type":        "string",
 				"x-dql-input": InputKindColumnOutput,
 			},
 			"select": map[string]any{
@@ -611,7 +611,7 @@ var lookupMeta = OpMetadata{
 				"default":     0,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"dataset", "on", "mode", "as", "select", "where", "limit", "cacheTtlMs"},
 	},
 }
@@ -627,9 +627,9 @@ var callFunctionMeta = OpMetadata{
 		"required": []string{"name"},
 		"properties": map[string]any{
 			"name": map[string]any{
-				"title":          "Function name",
-				"description":    "Fully qualified DTL function name (e.g. `geo::lookup`).",
-				"type":           "string",
+				"title":       "Function name",
+				"description": "Fully qualified DTL function name (e.g. `geo::lookup`).",
+				"type":        "string",
 				"x-dql-input": InputKindFunctionName,
 			},
 			"mode": map[string]any{
@@ -652,9 +652,9 @@ var callFunctionMeta = OpMetadata{
 				"additionalProperties": map[string]any{},
 			},
 			"as": map[string]any{
-				"title":          "Output column",
-				"description":    "Column to store the function result under.",
-				"type":           "string",
+				"title":       "Output column",
+				"description": "Column to store the function result under.",
+				"type":        "string",
 				"x-dql-input": InputKindColumnOutput,
 			},
 			"literalArgs": map[string]any{
@@ -663,7 +663,7 @@ var callFunctionMeta = OpMetadata{
 				"type":        "boolean",
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"name", "mode", "pure", "args", "literalArgs", "as"},
 	},
 	Examples: []OpExample{
@@ -684,9 +684,9 @@ var callAppMeta = OpMetadata{
 		"required": []string{"appId"},
 		"properties": map[string]any{
 			"appId": map[string]any{
-				"title":          "App ID",
-				"description":    "Identifier of the managed app to invoke.",
-				"type":           "string",
+				"title":       "App ID",
+				"description": "Identifier of the managed app to invoke.",
+				"type":        "string",
 				"x-dql-input": InputKindAppID,
 			},
 			"method": map[string]any{
@@ -714,13 +714,13 @@ var callAppMeta = OpMetadata{
 				"additionalProperties": map[string]any{},
 			},
 			"dataset": map[string]any{
-				"title":          "Dataset hint",
-				"description":    "Optional dataset name passed to the app for context.",
-				"type":           "string",
+				"title":       "Dataset hint",
+				"description": "Optional dataset name passed to the app for context.",
+				"type":        "string",
 				"x-dql-input": InputKindDataset,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"appId", "method", "capability", "batch", "payload", "dataset"},
 	},
 }
@@ -747,7 +747,7 @@ var algoMeta = OpMetadata{
 				"additionalProperties": map[string]any{},
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"name", "params"},
 	},
 	Examples: []OpExample{
@@ -768,9 +768,9 @@ var branchMeta = OpMetadata{
 		"required": []string{"when", "then"},
 		"properties": map[string]any{
 			"when": map[string]any{
-				"title":          "Predicate",
-				"description":    "DTL expression evaluated per row. Truthy results take the `then` branch.",
-				"type":           "string",
+				"title":       "Predicate",
+				"description": "DTL expression evaluated per row. Truthy results take the `then` branch.",
+				"type":        "string",
 				"x-dql-input": InputKindDTLExpression,
 			},
 			"then": map[string]any{
@@ -786,7 +786,7 @@ var branchMeta = OpMetadata{
 				"items":       refSchema("PipeStage"),
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"when", "then", "else"},
 	},
 }
@@ -821,7 +821,7 @@ var mergeMeta = OpMetadata{
 				"minItems": 1,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"sources"},
 	},
 }
@@ -841,7 +841,7 @@ var tapMeta = OpMetadata{
 				"type":        "string",
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"label"},
 	},
 }
@@ -882,37 +882,37 @@ var timeBucketMeta = OpMetadata{
 		"required": []string{"field", "interval", "as"},
 		"properties": map[string]any{
 			"field": map[string]any{
-				"title":          "Timestamp column",
-				"description":    "Column carrying the row's timestamp.",
-				"type":           "string",
+				"title":       "Timestamp column",
+				"description": "Column carrying the row's timestamp.",
+				"type":        "string",
 				"x-dql-input": InputKindColumn,
 			},
 			"interval": map[string]any{
-				"title":          "Bucket size",
-				"description":    "Duration string for the bucket width — `\"5m\"`, `\"1h\"`, `\"1d\"`.",
-				"type":           "string",
+				"title":       "Bucket size",
+				"description": "Duration string for the bucket width — `\"5m\"`, `\"1h\"`, `\"1d\"`.",
+				"type":        "string",
 				"x-dql-input": InputKindDuration,
 			},
 			"as": map[string]any{
-				"title":          "Output column",
-				"description":    "Column to write the bucket-start timestamp into.",
-				"type":           "string",
+				"title":       "Output column",
+				"description": "Column to write the bucket-start timestamp into.",
+				"type":        "string",
 				"x-dql-input": InputKindColumnOutput,
 			},
 			"tz": map[string]any{
-				"title":          "Timezone",
-				"description":    "Optional IANA timezone (e.g. `America/New_York`) used to align bucket boundaries. Defaults to UTC.",
-				"type":           "string",
+				"title":       "Timezone",
+				"description": "Optional IANA timezone (e.g. `America/New_York`) used to align bucket boundaries. Defaults to UTC.",
+				"type":        "string",
 				"x-dql-input": InputKindTimezone,
 			},
 			"origin": map[string]any{
-				"title":          "Bucket origin",
-				"description":    "Optional RFC3339 anchor that defines where buckets start. Defaults to the Unix epoch.",
-				"type":           "string",
+				"title":       "Bucket origin",
+				"description": "Optional RFC3339 anchor that defines where buckets start. Defaults to the Unix epoch.",
+				"type":        "string",
 				"x-dql-input": InputKindTimestamp,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"field", "interval", "as", "tz", "origin"},
 	},
 	Examples: []OpExample{
@@ -933,27 +933,27 @@ var gapfillMeta = OpMetadata{
 		"required": []string{"field", "interval"},
 		"properties": map[string]any{
 			"field": map[string]any{
-				"title":          "Timestamp column",
-				"description":    "Column carrying the row's timestamp.",
-				"type":           "string",
+				"title":       "Timestamp column",
+				"description": "Column carrying the row's timestamp.",
+				"type":        "string",
 				"x-dql-input": InputKindColumn,
 			},
 			"interval": map[string]any{
-				"title":          "Bucket size",
-				"description":    "Duration string (`\"5m\"`, `\"1h\"`) describing the gap between expected timestamps.",
-				"type":           "string",
+				"title":       "Bucket size",
+				"description": "Duration string (`\"5m\"`, `\"1h\"`) describing the gap between expected timestamps.",
+				"type":        "string",
 				"x-dql-input": InputKindDuration,
 			},
 			"from": map[string]any{
-				"title":          "Range start",
-				"description":    "Optional RFC3339 lower bound. Defaults to the earliest timestamp in the input.",
-				"type":           "string",
+				"title":       "Range start",
+				"description": "Optional RFC3339 lower bound. Defaults to the earliest timestamp in the input.",
+				"type":        "string",
 				"x-dql-input": InputKindTimestamp,
 			},
 			"to": map[string]any{
-				"title":          "Range end",
-				"description":    "Optional RFC3339 upper bound. Defaults to the latest timestamp in the input.",
-				"type":           "string",
+				"title":       "Range end",
+				"description": "Optional RFC3339 upper bound. Defaults to the latest timestamp in the input.",
+				"type":        "string",
 				"x-dql-input": InputKindTimestamp,
 			},
 			"method": map[string]any{
@@ -964,8 +964,8 @@ var gapfillMeta = OpMetadata{
 				"default":     "null",
 			},
 			"value": map[string]any{
-				"title":                  "Constant fill value",
-				"description":            "Used when `method` is `value`. Any JSON scalar.",
+				"title":               "Constant fill value",
+				"description":         "Used when `method` is `value`. Any JSON scalar.",
 				"x-dql-required-when": map[string]any{"method": []string{"value"}},
 			},
 			"groupBy": map[string]any{
@@ -975,14 +975,14 @@ var gapfillMeta = OpMetadata{
 				"items":       map[string]any{"type": "string", "x-dql-input": InputKindColumn},
 			},
 			"carry": map[string]any{
-				"title":                  "Carry-forward columns",
-				"description":            "Columns whose value is copied from the most recent real row when `method` is `lastValue`.",
-				"type":                   "array",
-				"items":                  map[string]any{"type": "string", "x-dql-input": InputKindColumn},
+				"title":               "Carry-forward columns",
+				"description":         "Columns whose value is copied from the most recent real row when `method` is `lastValue`.",
+				"type":                "array",
+				"items":               map[string]any{"type": "string", "x-dql-input": InputKindColumn},
 				"x-dql-required-when": map[string]any{"method": []string{"lastValue"}},
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"field", "interval", "method", "value", "from", "to", "groupBy", "carry"},
 	},
 }
@@ -998,39 +998,39 @@ var asofJoinMeta = OpMetadata{
 		"required": []string{"dataset", "leftTime", "rightTime"},
 		"properties": map[string]any{
 			"dataset": map[string]any{
-				"title":          "Right-side dataset",
-				"description":    "Dataset to fetch the right side from.",
-				"type":           "string",
+				"title":       "Right-side dataset",
+				"description": "Dataset to fetch the right side from.",
+				"type":        "string",
 				"x-dql-input": InputKindDataset,
 			},
 			"leftTime": map[string]any{
-				"title":          "Left timestamp column",
-				"description":    "Column on the streaming (left) side carrying the row's timestamp.",
-				"type":           "string",
+				"title":       "Left timestamp column",
+				"description": "Column on the streaming (left) side carrying the row's timestamp.",
+				"type":        "string",
 				"x-dql-input": InputKindColumn,
 			},
 			"rightTime": map[string]any{
-				"title":          "Right timestamp column",
-				"description":    "Column on the looked-up (right) side carrying the row's timestamp.",
-				"type":           "string",
+				"title":       "Right timestamp column",
+				"description": "Column on the looked-up (right) side carrying the row's timestamp.",
+				"type":        "string",
 				"x-dql-input": InputKindDatasetColumn,
 			},
 			"leftKey": map[string]any{
-				"title":          "Left identity column",
-				"description":    "Optional. Column on the left whose value must equal `rightKey` for a match.",
-				"type":           "string",
+				"title":       "Left identity column",
+				"description": "Optional. Column on the left whose value must equal `rightKey` for a match.",
+				"type":        "string",
 				"x-dql-input": InputKindColumn,
 			},
 			"rightKey": map[string]any{
-				"title":          "Right identity column",
-				"description":    "Optional. Column on the right whose value must equal `leftKey` for a match.",
-				"type":           "string",
+				"title":       "Right identity column",
+				"description": "Optional. Column on the right whose value must equal `leftKey` for a match.",
+				"type":        "string",
 				"x-dql-input": InputKindDatasetColumn,
 			},
 			"tolerance": map[string]any{
-				"title":          "Match tolerance",
-				"description":    "Optional duration (`\"1m\"`, `\"30s\"`). Drops matches further than this from the left row's timestamp.",
-				"type":           "string",
+				"title":       "Match tolerance",
+				"description": "Optional duration (`\"1m\"`, `\"30s\"`). Drops matches further than this from the left row's timestamp.",
+				"type":        "string",
 				"x-dql-input": InputKindDuration,
 			},
 			"direction": map[string]any{
@@ -1041,9 +1041,9 @@ var asofJoinMeta = OpMetadata{
 				"default":     "backward",
 			},
 			"as": map[string]any{
-				"title":          "Output column",
-				"description":    "Optional. When set, the matched right row is nested under this column.",
-				"type":           "string",
+				"title":       "Output column",
+				"description": "Optional. When set, the matched right row is nested under this column.",
+				"type":        "string",
 				"x-dql-input": InputKindColumnOutput,
 			},
 			"select": map[string]any{
@@ -1064,7 +1064,7 @@ var asofJoinMeta = OpMetadata{
 				"minimum":     0,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"dataset", "leftTime", "rightTime", "leftKey", "rightKey", "direction", "tolerance", "as", "select", "where", "limit"},
 	},
 }
@@ -1099,7 +1099,7 @@ var topPerGroupMeta = OpMetadata{
 				"items":       map[string]any{"type": "string", "x-dql-input": InputKindColumn},
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"n", "partitionBy", "by"},
 	},
 }
@@ -1121,15 +1121,15 @@ var pivotMeta = OpMetadata{
 				"items":       map[string]any{"type": "string", "x-dql-input": InputKindColumn},
 			},
 			"columnKey": map[string]any{
-				"title":          "Column key",
-				"description":    "Column whose distinct values become the names of new columns.",
-				"type":           "string",
+				"title":       "Column key",
+				"description": "Column whose distinct values become the names of new columns.",
+				"type":        "string",
 				"x-dql-input": InputKindColumn,
 			},
 			"valueField": map[string]any{
-				"title":          "Value column",
-				"description":    "Column whose values populate the cells.",
-				"type":           "string",
+				"title":       "Value column",
+				"description": "Column whose values populate the cells.",
+				"type":        "string",
 				"x-dql-input": InputKindColumn,
 			},
 			"aggregate": map[string]any{
@@ -1144,13 +1144,13 @@ var pivotMeta = OpMetadata{
 				"description": "Value to use for output cells with no source row. Defaults to null.",
 			},
 			"prefix": map[string]any{
-				"title":          "Column prefix",
-				"description":    "Optional string prepended to every generated column name.",
-				"type":           "string",
+				"title":       "Column prefix",
+				"description": "Optional string prepended to every generated column name.",
+				"type":        "string",
 				"x-dql-input": InputKindPrefix,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"rowKeys", "columnKey", "valueField", "aggregate", "fillValue", "prefix"},
 	},
 }
@@ -1178,19 +1178,19 @@ var unpivotMeta = OpMetadata{
 				"items":       map[string]any{"type": "string", "x-dql-input": InputKindColumn},
 			},
 			"nameAs": map[string]any{
-				"title":          "Name output column",
-				"description":    "Output column that records the source column name.",
-				"type":           "string",
+				"title":       "Name output column",
+				"description": "Output column that records the source column name.",
+				"type":        "string",
 				"x-dql-input": InputKindColumnOutput,
 			},
 			"valueAs": map[string]any{
-				"title":          "Value output column",
-				"description":    "Output column that records the cell value.",
-				"type":           "string",
+				"title":       "Value output column",
+				"description": "Output column that records the cell value.",
+				"type":        "string",
 				"x-dql-input": InputKindColumnOutput,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"idCols", "valueCols", "nameAs", "valueAs"},
 	},
 }
@@ -1206,15 +1206,15 @@ var unnestObjectMeta = OpMetadata{
 		"required": []string{"field"},
 		"properties": map[string]any{
 			"field": map[string]any{
-				"title":          "Object column",
-				"description":    "Column whose object value's keys are spread onto the root row.",
-				"type":           "string",
+				"title":       "Object column",
+				"description": "Column whose object value's keys are spread onto the root row.",
+				"type":        "string",
 				"x-dql-input": InputKindColumn,
 			},
 			"prefix": map[string]any{
-				"title":          "Key prefix",
-				"description":    "Optional. Prepended to every spread key (e.g. `m_` produces `m_owner`).",
-				"type":           "string",
+				"title":       "Key prefix",
+				"description": "Optional. Prepended to every spread key (e.g. `m_` produces `m_owner`).",
+				"type":        "string",
 				"x-dql-input": InputKindPrefix,
 			},
 			"drop": map[string]any{
@@ -1224,7 +1224,7 @@ var unnestObjectMeta = OpMetadata{
 				"default":     false,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"field", "prefix", "drop"},
 	},
 }
@@ -1247,9 +1247,9 @@ var nestMeta = OpMetadata{
 				"minItems":    1,
 			},
 			"into": map[string]any{
-				"title":          "Nested array column",
-				"description":    "Name of the output column where the per-group array of nested records is stored.",
-				"type":           "string",
+				"title":       "Nested array column",
+				"description": "Name of the output column where the per-group array of nested records is stored.",
+				"type":        "string",
 				"x-dql-input": InputKindColumnOutput,
 			},
 			"include": map[string]any{
@@ -1259,7 +1259,7 @@ var nestMeta = OpMetadata{
 				"items":       map[string]any{"type": "string", "x-dql-input": InputKindColumn},
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"by", "into", "include"},
 	},
 }
@@ -1286,7 +1286,7 @@ var dropNullsMeta = OpMetadata{
 				"default":     true,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"columns", "any"},
 	},
 }
@@ -1314,26 +1314,26 @@ var fillNullsMeta = OpMetadata{
 				"default":     "value",
 			},
 			"value": map[string]any{
-				"title":                  "Constant fill value",
-				"description":            "Used when `method` is `value`. Any JSON scalar.",
+				"title":               "Constant fill value",
+				"description":         "Used when `method` is `value`. Any JSON scalar.",
 				"x-dql-required-when": map[string]any{"method": []string{"value"}},
 			},
 			"partitionBy": map[string]any{
-				"title":                  "Partition keys",
-				"description":            "Required for `lastValue` / `nextValue`. Within each partition, ordering and carry semantics apply independently.",
-				"type":                   "array",
-				"items":                  map[string]any{"type": "string", "x-dql-input": InputKindColumn},
+				"title":               "Partition keys",
+				"description":         "Required for `lastValue` / `nextValue`. Within each partition, ordering and carry semantics apply independently.",
+				"type":                "array",
+				"items":               map[string]any{"type": "string", "x-dql-input": InputKindColumn},
 				"x-dql-required-when": map[string]any{"method": []string{"lastValue", "nextValue"}},
 			},
 			"orderBy": map[string]any{
-				"title":                  "Sort order",
-				"description":            "Required for `lastValue` / `nextValue` to define what \"previous\" / \"next\" means within a partition.",
-				"type":                   "array",
-				"items":                  refSchema("OrderByClause"),
+				"title":               "Sort order",
+				"description":         "Required for `lastValue` / `nextValue` to define what \"previous\" / \"next\" means within a partition.",
+				"type":                "array",
+				"items":               refSchema("OrderByClause"),
 				"x-dql-required-when": map[string]any{"method": []string{"lastValue", "nextValue"}},
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"method", "value", "columns", "partitionBy", "orderBy"},
 	},
 }
@@ -1357,21 +1357,21 @@ var transformMeta = OpMetadata{
 					"required": []string{"as"},
 					"properties": map[string]any{
 						"as": map[string]any{
-							"title":          "Output column name",
-							"description":    "Column to write the value into.",
-							"type":           "string",
+							"title":       "Output column name",
+							"description": "Column to write the value into.",
+							"type":        "string",
 							"x-dql-input": InputKindColumnOutput,
 						},
 						"expr": map[string]any{
-							"title":          "DTL expression",
-							"description":    "DTL expression evaluated against each row. Mutually exclusive with `from`.",
-							"type":           "string",
+							"title":       "DTL expression",
+							"description": "DTL expression evaluated against each row. Mutually exclusive with `from`.",
+							"type":        "string",
 							"x-dql-input": InputKindDTLExpression,
 						},
 						"from": map[string]any{
-							"title":          "Source column",
-							"description":    "Existing column to copy verbatim. Mutually exclusive with `expr`.",
-							"type":           "string",
+							"title":       "Source column",
+							"description": "Existing column to copy verbatim. Mutually exclusive with `expr`.",
+							"type":        "string",
 							"x-dql-input": InputKindColumn,
 						},
 					},
@@ -1392,7 +1392,7 @@ var transformMeta = OpMetadata{
 				"default":     false,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"compute", "drop", "replace"},
 	},
 	Examples: []OpExample{
@@ -1430,9 +1430,9 @@ var castMeta = OpMetadata{
 					"required": []string{"field", "to"},
 					"properties": map[string]any{
 						"field": map[string]any{
-							"title":          "Column",
-							"description":    "Column whose values should be cast.",
-							"type":           "string",
+							"title":       "Column",
+							"description": "Column whose values should be cast.",
+							"type":        "string",
 							"x-dql-input": InputKindColumn,
 						},
 						"to": map[string]any{
@@ -1454,7 +1454,7 @@ var castMeta = OpMetadata{
 				"minItems": 1,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"casts"},
 	},
 }
@@ -1490,7 +1490,7 @@ var dedupeMeta = OpMetadata{
 				"items":       refSchema("OrderByClause"),
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"by", "keep", "orderBy"},
 	},
 }
@@ -1530,7 +1530,7 @@ var sampleMeta = OpMetadata{
 				"default":     "random",
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"method", "n", "ratio", "seed"},
 	},
 }
@@ -1546,9 +1546,9 @@ var assertMeta = OpMetadata{
 		"required": []string{"expr"},
 		"properties": map[string]any{
 			"expr": map[string]any{
-				"title":          "Assertion expression",
-				"description":    "DTL expression that must be truthy. Falsy results fail the query.",
-				"type":           "string",
+				"title":       "Assertion expression",
+				"description": "DTL expression that must be truthy. Falsy results fail the query.",
+				"type":        "string",
 				"x-dql-input": InputKindDTLExpression,
 			},
 			"scope": map[string]any{
@@ -1564,7 +1564,7 @@ var assertMeta = OpMetadata{
 				"type":        "string",
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"scope", "expr", "message"},
 	},
 }
@@ -1605,7 +1605,7 @@ var intersectMeta = OpMetadata{
 				"items":       map[string]any{"type": "string", "x-dql-input": InputKindColumn},
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"sources", "by"},
 	},
 }
@@ -1656,7 +1656,7 @@ var exceptMeta = OpMetadata{
 				"items":       map[string]any{"type": "string", "x-dql-input": InputKindColumn},
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"left", "right", "by"},
 	},
 }
@@ -1672,15 +1672,15 @@ var crossJoinMeta = OpMetadata{
 		"required": []string{"dataset"},
 		"properties": map[string]any{
 			"dataset": map[string]any{
-				"title":          "Right-side dataset",
-				"description":    "Dataset to fetch the cartesian-product right side from.",
-				"type":           "string",
+				"title":       "Right-side dataset",
+				"description": "Dataset to fetch the cartesian-product right side from.",
+				"type":        "string",
 				"x-dql-input": InputKindDataset,
 			},
 			"as": map[string]any{
-				"title":          "Output column",
-				"description":    "Optional. When set, each right row is nested under this column instead of being flattened into the left row.",
-				"type":           "string",
+				"title":       "Output column",
+				"description": "Optional. When set, each right row is nested under this column instead of being flattened into the left row.",
+				"type":        "string",
 				"x-dql-input": InputKindColumnOutput,
 			},
 			"select": map[string]any{
@@ -1701,7 +1701,7 @@ var crossJoinMeta = OpMetadata{
 				"minimum":     0,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"dataset", "as", "select", "where", "limit"},
 	},
 }
@@ -1717,9 +1717,9 @@ var histogramMeta = OpMetadata{
 		"required": []string{"field", "bins"},
 		"properties": map[string]any{
 			"field": map[string]any{
-				"title":          "Numeric column",
-				"description":    "Column whose numeric values are bucketed.",
-				"type":           "string",
+				"title":       "Numeric column",
+				"description": "Column whose numeric values are bucketed.",
+				"type":        "string",
 				"x-dql-input": InputKindColumn,
 			},
 			"bins": map[string]any{
@@ -1739,28 +1739,28 @@ var histogramMeta = OpMetadata{
 				"type":        "number",
 			},
 			"asCount": map[string]any{
-				"title":          "Count column name",
-				"description":    "Output column for the per-bin count.",
-				"type":           "string",
-				"default":        "count",
+				"title":       "Count column name",
+				"description": "Output column for the per-bin count.",
+				"type":        "string",
+				"default":     "count",
 				"x-dql-input": InputKindColumnOutput,
 			},
 			"asStart": map[string]any{
-				"title":          "Bin-start column name",
-				"description":    "Output column for each bin's lower edge.",
-				"type":           "string",
-				"default":        "binStart",
+				"title":       "Bin-start column name",
+				"description": "Output column for each bin's lower edge.",
+				"type":        "string",
+				"default":     "binStart",
 				"x-dql-input": InputKindColumnOutput,
 			},
 			"asEnd": map[string]any{
-				"title":          "Bin-end column name",
-				"description":    "Output column for each bin's upper edge.",
-				"type":           "string",
-				"default":        "binEnd",
+				"title":       "Bin-end column name",
+				"description": "Output column for each bin's upper edge.",
+				"type":        "string",
+				"default":     "binEnd",
 				"x-dql-input": InputKindColumnOutput,
 			},
 		},
-		"additionalProperties":    false,
+		"additionalProperties": false,
 		"x-dql-property-order": []string{"field", "bins", "min", "max", "asCount", "asStart", "asEnd"},
 	},
 }
