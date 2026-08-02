@@ -1,0 +1,20 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * 1'
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    uses: xraph/workflows/.github/workflows/codeql.yml@v1
+    with:
+      go-version: '1.26'
