@@ -1,17 +1,36 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "dql",
+  "displayName": "Data Query Language",
   "scopeName": "source.dql",
-  "fileTypes": ["dql"],
+  "fileTypes": [
+    "dql"
+  ],
   "patterns": [
-    { "include": "#comments" },
-    { "include": "#strings" },
-    { "include": "#numbers" },
-    { "include": "#from" },
-    { "include": "#stages" },
-    { "include": "#keywords" },
-    { "include": "#operators" },
-    { "include": "#identifiers" }
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#from"
+    },
+    {
+      "include": "#stages"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#identifiers"
+    }
   ],
   "repository": {
     "comments": {
@@ -32,26 +51,41 @@
       "begin": "\"",
       "end": "\"",
       "patterns": [
-        { "name": "constant.character.escape.dql", "match": "\\\\." }
+        {
+          "name": "constant.character.escape.dql",
+          "match": "\\\\."
+        }
       ]
     },
     "numbers": {
       "patterns": [
-        { "name": "constant.numeric.float.dql", "match": "\\b\\d+\\.\\d+\\b" },
-        { "name": "constant.numeric.integer.dql", "match": "\\b\\d+\\b" }
+        {
+          "name": "constant.numeric.float.dql",
+          "match": "\\b\\d+\\.\\d+\\b"
+        },
+        {
+          "name": "constant.numeric.integer.dql",
+          "match": "\\b\\d+\\b"
+        }
       ]
     },
     "from": {
       "match": "^\\s*(from)\\s+([A-Za-z_][A-Za-z0-9_]*)",
       "captures": {
-        "1": { "name": "keyword.control.dql" },
-        "2": { "name": "entity.name.type.dataset.dql" }
+        "1": {
+          "name": "keyword.control.dql"
+        },
+        "2": {
+          "name": "entity.name.type.dataset.dql"
+        }
       }
     },
     "stages": {
       "match": "(?<=\\|)\\s*(where|filter|select|computed|order_by|orderBy|group_by|groupBy|aggregate|having|limit|offset|join|distinct|expand|viz|pipe)\\b",
       "captures": {
-        "1": { "name": "keyword.operator.stage.dql" }
+        "1": {
+          "name": "keyword.operator.stage.dql"
+        }
       }
     },
     "keywords": {
