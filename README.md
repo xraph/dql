@@ -1,4 +1,4 @@
-# DQL
+# DQL — Data Query Language
 
 A declarative query language for Go. You describe *what* you want as a
 document; DQL plans it, pushes down what the database can do, and finishes the
@@ -32,9 +32,8 @@ pipe:
     limit: 10
 ```
 
-> **On the name.** DQL is a name, not an acronym — there is no expansion you
-> are missing. It describes queries over whatever data a host exposes, without
-> assuming a domain of its own.
+> **On the name.** DQL is *Data Query Language*. It queries whatever data a
+> host exposes and assumes no domain of its own.
 
 ## Install
 
