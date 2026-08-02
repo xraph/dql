@@ -32,6 +32,10 @@ pipe:
     limit: 10
 ```
 
+> **On the name.** DQL is a name, not an acronym — there is no expansion you
+> are missing. It describes queries over whatever data a host exposes, without
+> assuming a domain of its own.
+
 ## Install
 
 ```bash
