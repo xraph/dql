@@ -260,23 +260,42 @@ whose swap count carries an extra log factor.
 `rowsLess` is shared by four call sites — `window`, `topPerGroup`, `dedupe`, and
 the `fillNulls` path in `quality.go` — so all four carry the same cost.
 
-### Validated fix (prototyped, not applied)
+### Fix applied (commit f7aa834)
 
-Decorate-sort-undecorate: extract each row's order-key values once (O(n) map
-lookups instead of O(n log n)), precompute direction at build time instead of
-per comparison, and use `sort.Slice` with an explicit original-index tiebreak,
-which is equivalent to a stable sort without symMerge's rotations.
+Decorate-sort-undecorate, in `orderSpec` (pipe/helpers.go): extract each row's
+order-key values once (O(n) map lookups instead of O(n log n)), resolve
+direction at build time instead of per comparison, and sort an index permutation
+with an original-index tiebreak — which reproduces `sort.SliceStable`'s output
+without symMerge's rotations.
 
-| `window`, single partition | n=100 | n=1000 | n=10000 | scaling |
-|---|---|---|---|---|
-| Current | 33.4µs | 580µs | 9.15ms | 17.4x, 15.8x |
-| Prototype | 17.6µs | 246µs | 3.28ms | 14.0x, 13.4x |
-| Speedup | 1.90x | 2.36x | 2.79x | |
+Measured with benchstat, `-benchtime=200ms -count=6`, all at p=0.002:
 
-The prototype lands on clean n log n, which is the correct complexity for a
-comparison sort — the excess was the comparator, not the algorithm. It trades
-one extra allocation per row for the key slice (20,420 → 30,068 allocs at
-n=10000); a flat backing array would recover most of that.
+| Benchmark | n=1000 | n=10000 |
+|---|---|---|
+| `window` | −39.79% | **−60.11%** |
+| `topPerGroup` | −39.99% | **−58.52%** |
+| `dedupeOrdered` | −61.36% | **−62.02%** |
+
+The result lands on clean n log n, the correct complexity for a comparison sort
+— the excess was the comparator, not the algorithm.
+
+**Trade:** holding extracted keys costs ~72% more B/op. A flat backing array
+keeps the increase in *allocs/op* to ~5%, but the bytes are real. Time was the
+constraint worth optimising here; if memory ever becomes the binding one, this
+is the knob.
+
+Tie ordering is pinned by characterisation tests (commit 5679584) and is
+unchanged. `rowsLess` is now unused and was removed.
+
+Two things this surfaced about the benchmarks themselves:
+
+- `dedupe` skips sorting entirely without an `orderBy`, so the original case
+  never exercised the comparator. A `dedupeOrdered` case now covers it.
+- `sort` was unaffected, because `sortOp` does **not** use `rowsLess` — it has
+  its own inline comparator carrying the identical defects (`strings.ToLower`
+  per comparison, map lookups per comparison, `sort.SliceStable`). Applying
+  `orderSpec` there is the obvious follow-up and is likely the largest remaining
+  win, since `sort` is the most commonly used of these operators.
 
 ### Gate verification (pull request #1, since closed)
 
