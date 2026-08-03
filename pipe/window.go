@@ -70,14 +70,24 @@ func (o *windowOp) Apply(_ context.Context, in []dsl.Row) ([]dsl.Row, error) {
 	// Within each group, sort indices by OrderBy and compute the function.
 	values := make([]any, len(in)) // value to assign to wrapped[i].row[As]
 
+	// Read the sort fields out of every row once, rather than once per
+	// comparison — see orderSpec.
+	spec := newOrderSpec(o.cfg.OrderBy)
+	sortKeys := spec.keys(in)
+
 	for _, k := range keys {
 		idxs := groups[k]
-		// Stable sort by OrderBy clauses.
-		sort.SliceStable(idxs, func(a, b int) bool {
-			ra := wrapped[idxs[a]].row
-			rb := wrapped[idxs[b]].row
-			return rowsLess(ra, rb, o.cfg.OrderBy)
-		})
+		// Ties fall back to the original index, so this matches the stable sort
+		// this replaced.
+		if !spec.empty() {
+			sort.Slice(idxs, func(a, b int) bool {
+				ia, ib := idxs[a], idxs[b]
+				if c := spec.compare(sortKeys[ia], sortKeys[ib]); c != 0 {
+					return c < 0
+				}
+				return ia < ib
+			})
+		}
 
 		switch strings.ToLower(o.cfg.Fn) {
 		case "row_number":
@@ -155,25 +165,6 @@ func (o *windowOp) Apply(_ context.Context, in []dsl.Row) ([]dsl.Row, error) {
 		w.row[o.cfg.As] = values[i]
 	}
 	return in, nil
-}
-
-// rowsLess applies an OrderBy comparison between two rows.
-func rowsLess(a, b dsl.Row, order []dsl.OrderByClause) bool {
-	for _, ob := range order {
-		field := ob.Field
-		if field == "" {
-			continue
-		}
-		cmp := compareValues(a[field], b[field])
-		if cmp == 0 {
-			continue
-		}
-		if strings.ToLower(ob.Dir) == "desc" {
-			return cmp > 0
-		}
-		return cmp < 0
-	}
-	return false
 }
 
 // orderKey returns a stable string key for an OrderBy tuple — used by rank

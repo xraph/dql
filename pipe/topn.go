@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
 
 	"github.com/xraph/dql/dsl"
 )
@@ -40,17 +39,25 @@ func (o *topPerGroupOp) Apply(_ context.Context, in []dsl.Row) ([]dsl.Row, error
 		}
 		groups[k] = append(groups[k], row)
 	}
+	spec := newOrderSpec(o.cfg.By)
 	out := make([]dsl.Row, 0, len(in))
 	for _, k := range order {
 		bucket := groups[k]
-		sort.SliceStable(bucket, func(i, j int) bool {
-			return rowsLess(bucket[i], bucket[j], o.cfg.By)
-		})
 		n := o.cfg.N
 		if n > len(bucket) {
 			n = len(bucket)
 		}
-		out = append(out, bucket[:n]...)
+		if spec.empty() {
+			out = append(out, bucket[:n]...)
+			continue
+		}
+		// Order a permutation rather than the bucket itself: ties fall back to
+		// the original index, matching the stable sort this replaced, and only
+		// the top n rows are materialised.
+		perm := spec.sortPerm(spec.keys(bucket), len(bucket))
+		for _, p := range perm[:n] {
+			out = append(out, bucket[p])
+		}
 	}
 	return out, nil
 }

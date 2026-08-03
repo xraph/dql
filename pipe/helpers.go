@@ -3,6 +3,7 @@ package pipe
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/xraph/dql/dsl"
@@ -226,4 +227,98 @@ func groupKey(groupBy []string, row dsl.Row) string {
 		parts = append(parts, fmt.Sprintf("%v", row[col]))
 	}
 	return strings.Join(parts, "\x00")
+}
+
+// orderSpec is a precompiled OrderBy list.
+//
+// Sorting rows through a comparator that reads fields straight out of the row
+// map costs two map lookups per comparison, and a comparison sort calls the
+// comparator O(n log n) times. Profiling `window` at 10k rows put
+// runtime.mapaccess1_faststr plus string hashing at ~35% of total time, with a
+// further 4.7% in strings.ToLower re-lowering a constant direction on every
+// comparison.
+//
+// orderSpec lifts both out: directions resolve once at build time, and keys
+// reads each row's sort fields once, making field access O(n) instead of
+// O(n log n).
+type orderSpec struct {
+	fields []string
+	desc   []bool
+}
+
+// newOrderSpec precompiles order. Clauses with no field are dropped here rather
+// than skipped on every comparison, matching the old rowsLess behaviour of
+// ignoring them.
+func newOrderSpec(order []dsl.OrderByClause) orderSpec {
+	s := orderSpec{
+		fields: make([]string, 0, len(order)),
+		desc:   make([]bool, 0, len(order)),
+	}
+	for _, ob := range order {
+		if ob.Field == "" {
+			continue
+		}
+		s.fields = append(s.fields, ob.Field)
+		s.desc = append(s.desc, strings.EqualFold(ob.Dir, "desc"))
+	}
+	return s
+}
+
+// empty reports whether this spec would order nothing. Callers skip sorting
+// entirely, which matches the old behaviour: a comparator that always returned
+// false left a stable sort's input untouched.
+func (s orderSpec) empty() bool { return len(s.fields) == 0 }
+
+// keys reads the sort fields out of every row once. One flat backing array
+// keeps this to two allocations rather than one per row.
+func (s orderSpec) keys(rows []dsl.Row) [][]any {
+	w := len(s.fields)
+	if w == 0 {
+		return nil
+	}
+	flat := make([]any, len(rows)*w)
+	out := make([][]any, len(rows))
+	for i, r := range rows {
+		k := flat[i*w : (i+1)*w : (i+1)*w]
+		for j, f := range s.fields {
+			k[j] = r[f]
+		}
+		out[i] = k
+	}
+	return out
+}
+
+// compare orders two pre-extracted key tuples, returning a value with the same
+// sign convention as compareValues.
+func (s orderSpec) compare(a, b []any) int {
+	for j := range s.fields {
+		c := compareValues(a[j], b[j])
+		if c == 0 {
+			continue
+		}
+		if s.desc[j] {
+			return -c
+		}
+		return c
+	}
+	return 0
+}
+
+// sortPerm returns the row indices ordered by this spec. Ties fall back to the
+// original index, which makes an unstable sort.Slice produce exactly what
+// sort.SliceStable did — without SliceStable's symMerge rotations, whose swap
+// count carries an extra log factor.
+func (s orderSpec) sortPerm(keys [][]any, n int) []int {
+	perm := make([]int, n)
+	for i := range perm {
+		perm[i] = i
+	}
+	sort.Slice(perm, func(a, b int) bool {
+		ia, ib := perm[a], perm[b]
+		if c := s.compare(keys[ia], keys[ib]); c != 0 {
+			return c < 0
+		}
+		return ia < ib
+	})
+	return perm
 }

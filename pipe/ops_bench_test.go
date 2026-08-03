@@ -126,6 +126,13 @@ func BenchmarkPipe(b *testing.B) {
 		"op": "dedupe", "by": []string{"assignee"}, "keep": "first",
 	}, octx)
 
+	// dedupe skips sorting entirely without an orderBy, so the case above never
+	// touches its comparator. This one does — that is where the cost lives.
+	benchOp(b, "dedupeOrdered", 20, map[string]any{
+		"op": "dedupe", "by": []string{"assignee"}, "keep": "first",
+		"orderBy": []map[string]any{{"field": "score", "dir": "desc"}},
+	}, octx)
+
 	benchOp(b, "window", 20, map[string]any{
 		"op": "window", "fn": "row_number",
 		"partitionBy": []string{"assignee"},

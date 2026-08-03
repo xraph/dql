@@ -168,11 +168,19 @@ func (o *fillNullsOp) fillCarry(in []dsl.Row, cols []string, forward bool) ([]ds
 		}
 		groups[k] = append(groups[k], i)
 	}
+	spec := newOrderSpec(o.cfg.OrderBy)
+	sortKeys := spec.keys(in)
 	for _, k := range order {
 		idxs := groups[k]
-		if len(o.cfg.OrderBy) > 0 {
-			sort.SliceStable(idxs, func(a, b int) bool {
-				return rowsLess(in[idxs[a]], in[idxs[b]], o.cfg.OrderBy)
+		if !spec.empty() {
+			// Ties fall back to the original index, matching the stable sort
+			// this replaced.
+			sort.Slice(idxs, func(a, b int) bool {
+				ia, ib := idxs[a], idxs[b]
+				if c := spec.compare(sortKeys[ia], sortKeys[ib]); c != 0 {
+					return c < 0
+				}
+				return ia < ib
 			})
 		}
 		walk := idxs
@@ -382,12 +390,14 @@ func (o *dedupeOp) Apply(_ context.Context, in []dsl.Row) ([]dsl.Row, error) {
 		return in, nil
 	}
 	rows := in
-	if len(o.cfg.OrderBy) > 0 {
+	if spec := newOrderSpec(o.cfg.OrderBy); !spec.empty() {
+		// Order a permutation, then materialise. Ties fall back to the original
+		// index, matching the stable sort this replaced.
+		perm := spec.sortPerm(spec.keys(in), len(in))
 		rows = make([]dsl.Row, len(in))
-		copy(rows, in)
-		sort.SliceStable(rows, func(i, j int) bool {
-			return rowsLess(rows[i], rows[j], o.cfg.OrderBy)
-		})
+		for i, p := range perm {
+			rows[i] = in[p]
+		}
 	}
 	keepLast := strings.EqualFold(o.cfg.Keep, "last")
 	seen := make(map[string]int, len(rows))
