@@ -26,6 +26,15 @@ type CompletionContext struct {
 	// Columns is a per-dataset map. Key is dataset name, value is the column
 	// list. Empty when not resolvable.
 	Columns map[string][]string
+	// Services is the host wiring the query will actually run against. When
+	// supplied, stages the host cannot execute are left out of the results —
+	// suggesting `callApp` to a deployment with no app caller produces a query
+	// that looks supported right up until it fails.
+	//
+	// Nil means "not known", not "nothing wired": an editor opening a file with
+	// no host attached still gets the whole language. Only a caller that knows
+	// its own configuration can narrow it.
+	Services *OpContext
 }
 
 // CompleteText analyses textual pipe input around `cursor` and returns
@@ -55,7 +64,7 @@ func CompleteText(text string, cursor int, ctx CompletionContext) []CompletionIt
 
 	// Empty segment (just after `|`) — suggest stage keywords.
 	if len(tokens) == 0 || (len(tokens) == 1 && tokens[0].kind == tokIdent && partial == tokens[0].text) {
-		return filterAndSort(textualStageItems(), partial)
+		return filterAndSort(textualStageItems(ctx), partial)
 	}
 
 	kw := strings.ToLower(tokens[0].text)
@@ -91,7 +100,7 @@ func CompleteText(text string, cursor int, ctx CompletionContext) []CompletionIt
 		return nil
 	default:
 		// First token isn't a recognised stage keyword — suggest stages.
-		return filterAndSort(textualStageItems(), kw)
+		return filterAndSort(textualStageItems(ctx), kw)
 	}
 }
 
@@ -124,12 +133,16 @@ var textualStages = []struct {
 
 // textualStageItems returns completion items for stage keywords typeable in
 // the textual surface. Labels match what the user types; descriptions come
-// from the catalog.
-func textualStageItems() []CompletionItem {
+// from the catalog. Stages the caller's host cannot run are omitted — see
+// CompletionContext.Services.
+func textualStageItems(ctx CompletionContext) []CompletionItem {
 	idx := CatalogIndex()
 	out := make([]CompletionItem, 0, len(textualStages))
 	for i, ts := range textualStages {
 		meta := idx[ts.Op]
+		if ctx.Services != nil && !meta.Available(ctx.Services) {
+			continue
+		}
 		out = append(out, CompletionItem{
 			Label:       ts.Keyword,
 			Kind:        "stage",

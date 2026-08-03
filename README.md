@@ -55,6 +55,40 @@ go get github.com/xraph/dql
 | `expand` | Turn id columns into display fields |
 | `scope` | Partition/tenant scoping (see below) |
 
+## Operators
+
+The pipe catalog defines 39 operators — filter, project, aggregate, window,
+joins, time bucketing, reshaping, quality checks, set operations. They ship
+with the language rather than being left to the host: the operator set *is*
+the language, and a query that runs against one host should mean the same
+thing against another.
+
+**[Operator reference →](docs/OPERATORS.md)** — every operator with its config
+schema, examples, and requirements. Generated from the catalog, so it cannot
+drift from the code.
+
+Most operators are self-contained. A few need something from the host, and say
+so rather than leaving you to find out at query time:
+
+```go
+octx := &pipe.OpContext{Eval: myEvaluator}
+
+for name, needs := range pipe.MissingRequirements(octx) {
+	log.Printf("operator %s unavailable: needs %v", name, needs)
+}
+```
+
+Pass the same `OpContext` to a completion request and stages the deployment
+cannot run are left out — an editor should not suggest `callApp` to a host with
+no app caller:
+
+```go
+items := pipe.CompleteText(text, cursor, pipe.CompletionContext{Services: octx})
+```
+
+Leaving `Services` nil means "not known", not "nothing wired", so an editor
+working on a file with no host attached still sees the whole language.
+
 ## Bring your own database
 
 `exec.SQLQuerier` is deliberately the shape `database/sql` already has, so

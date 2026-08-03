@@ -110,3 +110,39 @@ func labelExists(items []CompletionItem, want string) bool {
 	}
 	return false
 }
+
+// A host that knows its own wiring should not be offered stages it cannot run.
+// The failure this prevents is quiet: `callApp` looks supported, autocompletes
+// cleanly, and fails only when the query is executed.
+func TestCompleteText_omitsStagesTheHostCannotRun(t *testing.T) {
+	const text = "source events | "
+	bare := CompleteText(text, len(text), CompletionContext{Services: &OpContext{}})
+	if labelExists(bare, "callApp") {
+		t.Error("callApp offered to a host with no app caller")
+	}
+	if labelExists(bare, "where") {
+		t.Error("where offered to a host with no expression evaluator")
+	}
+	if !labelExists(bare, "limit") {
+		t.Error("limit needs nothing and should always be offered")
+	}
+
+	wired := CompleteText(text, len(text), CompletionContext{
+		Services: &OpContext{Eval: stubEval{}, AppCaller: &stubAppCaller{}},
+	})
+	if !labelExists(wired, "callApp") || !labelExists(wired, "where") {
+		t.Errorf("wiring the services should restore the stages: %+v", wired)
+	}
+}
+
+// Nil Services means "the caller did not say", not "nothing is wired". An
+// editor with no host attached must still see the whole language.
+func TestCompleteText_nilServicesFiltersNothing(t *testing.T) {
+	const text = "source events | "
+	items := CompleteText(text, len(text), CompletionContext{})
+	for _, want := range []string{"where", "compute", "callFunction", "callApp"} {
+		if !labelExists(items, want) {
+			t.Errorf("%s missing when no services were declared: %+v", want, items)
+		}
+	}
+}

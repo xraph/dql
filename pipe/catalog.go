@@ -64,7 +64,35 @@ type OpMetadata struct {
 	ConfigSchema map[string]any `json:"configSchema"`
 	// Examples are short JSON snippets a UI can offer as starter values.
 	Examples []OpExample `json:"examples,omitempty"`
+	// Requires names the host services this operator needs in its OpContext.
+	// Empty means the operator is self-contained and works anywhere.
+	//
+	// Declared rather than discovered: without it a host cannot answer "which
+	// operators work in my configuration?" except by running a query and
+	// reading the error, and a completion list offers stages that are
+	// guaranteed to fail. See MissingRequirements.
+	Requires []Requirement `json:"requires,omitempty"`
 }
+
+// Requirement names a host service an operator depends on.
+type Requirement string
+
+const (
+	// ReqEval is an expression evaluator, for the expr forms of filter,
+	// compute, branch, transform and assert.
+	ReqEval Requirement = "eval"
+	// ReqFunctionRegistry resolves and runs named host functions.
+	ReqFunctionRegistry Requirement = "functionRegistry"
+	// ReqAppCaller invokes a host application endpoint.
+	ReqAppCaller Requirement = "appCaller"
+	// ReqFormula computes host-defined formula columns.
+	ReqFormula Requirement = "formula"
+	// ReqClassic runs a nested non-pipe query, which set operations, lookups
+	// and as-of joins need in order to read their right-hand side.
+	ReqClassic Requirement = "classic"
+	// ReqAlgorithms resolves named algorithms for the algo operator.
+	ReqAlgorithms Requirement = "algorithms"
+)
 
 // OpExample is one starter value for an op.
 type OpExample struct {
@@ -145,6 +173,7 @@ func CatalogIndex() map[string]OpMetadata {
 
 var filterMeta = OpMetadata{
 	Name:            "filter",
+	Requires:        []Requirement{ReqEval},
 	Summary:         "Keep rows that match a predicate",
 	Description:     "Filters rows by a WHERE clause. Plain field/op/value forms push down to SQL; DTL `expr` forms run in-memory.",
 	LiveSafeDefault: true,
@@ -258,6 +287,7 @@ var dropMeta = OpMetadata{
 
 var computeMeta = OpMetadata{
 	Name:            "compute",
+	Requires:        []Requirement{ReqEval, ReqFormula},
 	Summary:         "Add a computed column",
 	Description:     "Evaluates a DTL expression (`kind:\"expr\"`) or Excel-style formula (`kind:\"formula\"`) per row and stores the result under `as`.",
 	LiveSafeDefault: true,
@@ -548,6 +578,7 @@ var windowMeta = OpMetadata{
 
 var lookupMeta = OpMetadata{
 	Name:            "lookup",
+	Requires:        []Requirement{ReqClassic},
 	Summary:         "Hash-join with another dataset",
 	Description:     "Fetches the right side via a secondary classic query. Use `cacheTtlMs` to avoid re-fetching on every live update.",
 	LiveSafeDefault: true,
@@ -618,6 +649,7 @@ var lookupMeta = OpMetadata{
 
 var callFunctionMeta = OpMetadata{
 	Name:            "callFunction",
+	Requires:        []Requirement{ReqFunctionRegistry},
 	Summary:         "Invoke a registered DTL function",
 	Description:     "Calls a function from the function extension. `pure: true` declares the function side-effect-free and makes it live-safe.",
 	LiveSafeDefault: false,
@@ -675,6 +707,7 @@ var callFunctionMeta = OpMetadata{
 
 var callAppMeta = OpMetadata{
 	Name:            "callApp",
+	Requires:        []Requirement{ReqAppCaller},
 	Summary:         "Invoke a managed app",
 	Description:     "Calls an external app via the runtime extension. Always non-live-safe; live subscriptions require `dryRun: true`.",
 	LiveSafeDefault: false,
@@ -727,6 +760,7 @@ var callAppMeta = OpMetadata{
 
 var algoMeta = OpMetadata{
 	Name:            "algo",
+	Requires:        []Requirement{ReqAlgorithms},
 	Summary:         "Run a registered algorithm",
 	Description:     "Invokes a native or external algorithm from the shared catalog (e.g. `minmax_scale`, `kmeans`, `robust_zscore`). `params` are forwarded verbatim to the algorithm — see its descriptor for accepted keys. Live-safety depends on the chosen algorithm: pure ones (most ETL transforms) are live-safe; external/stateful ones are not.",
 	LiveSafeDefault: false,
@@ -759,6 +793,7 @@ var algoMeta = OpMetadata{
 
 var branchMeta = OpMetadata{
 	Name:            "branch",
+	Requires:        []Requirement{ReqEval},
 	Summary:         "Per-row conditional sub-pipes",
 	Description:     "Routes each row through `then` or `else` based on a DTL predicate. Live-safety propagates from the children.",
 	LiveSafeDefault: true,
@@ -989,6 +1024,7 @@ var gapfillMeta = OpMetadata{
 
 var asofJoinMeta = OpMetadata{
 	Name:            "asofJoin",
+	Requires:        []Requirement{ReqClassic},
 	Summary:         "Join on the closest timestamp",
 	Description:     "For each left row, finds the right row with the closest timestamp on a matching key. Direction backward (default) | forward | nearest, with optional tolerance.",
 	LiveSafeDefault: true,
@@ -1340,6 +1376,7 @@ var fillNullsMeta = OpMetadata{
 
 var transformMeta = OpMetadata{
 	Name:            "transform",
+	Requires:        []Requirement{ReqEval},
 	Summary:         "Compute multiple columns in one stage",
 	Description:     "Like `compute` but takes a list. Entries evaluate in order and can reference earlier results. Use `from` for plain column copies and `replace: true` to drop everything not produced.",
 	LiveSafeDefault: true,
@@ -1537,6 +1574,7 @@ var sampleMeta = OpMetadata{
 
 var assertMeta = OpMetadata{
 	Name:            "assert",
+	Requires:        []Requirement{ReqEval},
 	Summary:         "Fail the query when an expression is false",
 	Description:     "Runtime guardrail. scope=row evaluates per row; scope=overall checks once with `count` available.",
 	LiveSafeDefault: true,
@@ -1571,6 +1609,7 @@ var assertMeta = OpMetadata{
 
 var intersectMeta = OpMetadata{
 	Name:            "intersect",
+	Requires:        []Requirement{ReqClassic},
 	Summary:         "Rows present in every source",
 	Description:     "Set intersection across N sub-pipes, identified by `by` keys (or full-row equality).",
 	LiveSafeDefault: true,
@@ -1612,6 +1651,7 @@ var intersectMeta = OpMetadata{
 
 var exceptMeta = OpMetadata{
 	Name:            "except",
+	Requires:        []Requirement{ReqClassic},
 	Summary:         "Rows in left but not in right",
 	LiveSafeDefault: true,
 	Pushable:        false,
@@ -1663,6 +1703,7 @@ var exceptMeta = OpMetadata{
 
 var crossJoinMeta = OpMetadata{
 	Name:            "crossJoin",
+	Requires:        []Requirement{ReqClassic},
 	Summary:         "Cartesian product with another dataset",
 	Description:     "Output size is N × M — use sparingly. Right-side rows can be filtered with `where` and capped with `limit`.",
 	LiveSafeDefault: true,

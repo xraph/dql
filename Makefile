@@ -252,6 +252,24 @@ clean:
 	@echo "$(COLOR_GREEN)✓ Cleaned$(COLOR_RESET)"
 
 # ==============================================================================
+# Code generation
+# ==============================================================================
+
+.PHONY: generate
+## generate: Run go generate across every module
+generate:
+	@echo "$(COLOR_GREEN)Running go generate...$(COLOR_RESET)"
+	@for m in $(MODULES); do (cd $$m && $(GOCMD) generate ./...) || exit 1; done
+	@echo "$(COLOR_GREEN)✓ Generated$(COLOR_RESET)"
+
+.PHONY: generate-check
+## generate-check: Fail if generated files are out of date
+generate-check: generate
+	@git diff --exit-code || \
+		(echo "$(COLOR_RED)Generated files are out of date. Run 'make generate' and commit.$(COLOR_RESET)" && exit 1)
+	@echo "$(COLOR_GREEN)✓ Generated files are current$(COLOR_RESET)"
+
+# ==============================================================================
 # Documentation
 # ==============================================================================
 
