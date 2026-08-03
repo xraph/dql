@@ -70,7 +70,7 @@
       ]
     },
     "from": {
-      "match": "^\\s*(from)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "match": "^\\s*(source)\\s+([A-Za-z_][A-Za-z0-9_]*)",
       "captures": {
         "1": {
           "name": "keyword.control.dql"
@@ -81,7 +81,7 @@
       }
     },
     "stages": {
-      "match": "(?<=\\|)\\s*(where|filter|select|computed|order_by|orderBy|group_by|groupBy|aggregate|having|limit|offset|join|distinct|expand|viz|pipe)\\b",
+      "match": "(?i)(?<=\\|)\\s*(callFunction|unnestObject|callfunction|unnestobject|topPerGroup|timeBucket|aggregate|dropNulls|fillNulls|transform|intersect|crossJoin|histogram|distinct|asofJoin|project|compute|flatten|groupBy|callApp|gapfill|unpivot|groupby|callapp|filter|rename|window|lookup|branch|dedupe|sample|assert|except|select|limit|merge|pivot|where|drop|sort|skip|algo|nest|cast|tap)\\b",
       "captures": {
         "1": {
           "name": "keyword.operator.stage.dql"
@@ -92,7 +92,7 @@
       "patterns": [
         {
           "name": "keyword.control.dql",
-          "match": "\\b(from|as|asc|desc|on|inner|left|right|full|cross)\\b"
+          "match": "\\b(as|asc|desc|on|inner|left|right|full|cross)\\b"
         },
         {
           "name": "constant.language.dql",
