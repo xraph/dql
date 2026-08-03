@@ -36,6 +36,20 @@ func (o *histogramOp) Name() string     { return "histogram" }
 func (o *histogramOp) IsLiveSafe() bool { return true }
 
 func (o *histogramOp) Apply(_ context.Context, in []dsl.Row) ([]dsl.Row, error) {
+	// ============================================================
+	// DELIBERATE SLOWDOWN — DO NOT MERGE.
+	// Exists only to prove the benchmark gate in .github/workflows/bench.yml
+	// actually fails a pull request. Delete this block along with the branch.
+	// ============================================================
+	for pass := 0; pass < 4; pass++ {
+		for _, row := range in {
+			if v, ok := row[o.cfg.Field]; ok && isNumeric(v) {
+				_ = math.Sqrt(toFloat(v))
+			}
+		}
+	}
+	// ============================================================
+
 	if len(in) == 0 || o.cfg.Bins <= 0 {
 		return in[:0:0], nil
 	}
