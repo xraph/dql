@@ -26,7 +26,12 @@ GOVET := $(GOCMD) vet
 # Test flags
 TEST_FLAGS := -v -race -timeout=5m
 COVERAGE_FLAGS := -coverprofile=$(COVERAGE_DIR)/coverage.out -covermode=atomic
-BENCH_FLAGS := -bench=. -benchmem -benchtime=5s
+# -run=^$$ skips tests so these targets measure benchmarks only. Without it,
+# `make bench` runs the entire test suite before reaching a single benchmark.
+BENCH_FLAGS := -run=^$$ -bench=. -benchmem -benchtime=5s
+# CI profile: a short benchtime with enough repeats for benchstat to compute a
+# p-value, sized to keep the pull-request gate inside its time budget.
+BENCH_CI_FLAGS := -run=^$$ -bench=. -benchmem -benchtime=100ms -count=6
 
 # Directories to test/lint
 # Every module in this repository. The LSP binary is a separate module so the
@@ -125,6 +130,15 @@ bench:
 bench-compare:
 	@echo "$(COLOR_GREEN)Running benchmarks (saving to bench.txt)...$(COLOR_RESET)"
 	@$(GOTEST) $(BENCH_FLAGS) $(TEST_DIRS) | tee bench.txt
+
+.PHONY: bench-ci
+## bench-ci: Run benchmarks with the CI profile (usage: make bench-ci OUT=new.txt)
+bench-ci:
+	@if [ -z "$(OUT)" ]; then \
+		echo "$(COLOR_RED)OUT required. Usage: make bench-ci OUT=new.txt$(COLOR_RESET)"; \
+		exit 1; \
+	fi
+	@$(GOTEST) $(BENCH_CI_FLAGS) $(TEST_DIRS) | tee $(OUT)
 
 # ==============================================================================
 # Linting and formatting
