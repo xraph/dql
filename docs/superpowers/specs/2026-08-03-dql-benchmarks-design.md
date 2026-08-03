@@ -164,8 +164,9 @@ minute budget.
 Gating rules:
 
 - Only changes benchstat reports as **statistically significant** are considered.
-- Fail above a **20%** slowdown. Deliberately generous to start, tightened once
-  the real-world spread is known.
+- Fail above a **30%** slowdown. This started at 20% pending real measurement;
+  the first verification run flagged an untouched benchmark at +20.06%, so the
+  noise tail reaches 20 and the threshold moved to 30. See Baseline findings.
 - Post the benchstat table as a pull request comment either way, so an
   improvement is as visible as a regression.
 
@@ -174,7 +175,7 @@ output and applies the threshold. benchstat is installed as a CI tool via
 `go install golang.org/x/perf/cmd/benchstat@latest`; it never enters `go.mod`.
 
 **Accepted risk:** even same-runner comparison leaves some variance, so
-occasional false positives are expected. The 20% threshold and the
+occasional false positives are expected. The 30% threshold and the
 significance filter are the mitigations; a re-run is the escape hatch. This
 trade-off was raised and accepted in favour of an automatic gate.
 
@@ -241,6 +242,30 @@ result set costs disproportionately more than the row count suggests. Not
 investigated further — it needs its own diagnosis, and the point of this suite
 was to surface it.
 
+### Gate verification (pull request #1, since closed)
+
+A throwaway pull request added four redundant passes to `histogramOp.Apply` to
+confirm the gate actually fails a build. It did:
+
+```
+Pipe/histogram/n=100-4     +117.45% (p=0.002 n=6)
+Pipe/histogram/n=1000-4    +173.27% (p=0.002 n=6)
+Pipe/histogram/n=10000-4   +187.87% (p=0.002 n=6)
+```
+
+Base/head checkout, benchstat, CSV parsing, threshold logic, and the pull
+request comment all worked.
+
+**It also produced one false positive:** `Pipe/sort/n=1000` at **+20.06%**, on a
+change that never touched `sort`. Same-runner comparison held most benchmarks to
+±1–3%, but the tail reaches 20%. That is why the threshold is now 30 rather than
+20 — the real regression measured +117% to +188%, so the extra 10 points cost no
+detection power.
+
+Unrelated but worth recording: `ci / Test (windows-latest, go1.26)` was already
+failing before this work (confirmed on commit 2093860 and earlier). Not caused
+by the benchmarks.
+
 ### Reference throughput
 
 End-to-end via an in-memory querier, n=10000: ~3.4M rows/s classic,
@@ -248,10 +273,15 @@ End-to-end via an in-memory querier, n=10000: ~3.4M rows/s classic,
 
 ### CI budget
 
-The full `bench-ci` profile takes 72s locally. The gate runs it twice, so
-expect roughly 5–7 minutes on a GitHub runner plus setup — within the agreed
-5–8 minute budget, but with little headroom. If it grows, cut `-count` before
-cutting coverage.
+Measured on a real pull request: **2m48s** end to end, including both benchmark
+runs, benchstat install, and the comment. The 5–8 minute budget has plenty of
+headroom.
+
+The earlier 5–7 minute estimate was wrong, and wrong for an instructive reason.
+`-benchtime=100ms` bounds each benchmark by wall clock rather than by iteration
+count, so total runtime is roughly *(benchmark count × 100ms × count)* almost
+independently of machine speed. A 4-core EPYC runner took about as long as an
+M3 Max. Adding benchmarks costs gate time; slower hardware barely does.
 
 ### Note on `crossJoin`
 

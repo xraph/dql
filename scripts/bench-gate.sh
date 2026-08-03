@@ -5,7 +5,14 @@
 # here.
 #
 # Usage: bench-gate.sh old.txt new.txt
-# Env:   THRESHOLD  percent slowdown that fails the build (default 20)
+# Env:   THRESHOLD  percent slowdown that fails the build (default 30)
+#
+# The threshold is 30, not 20, because measurement on a shared runner said so:
+# the first verification run flagged Pipe/sort/n=1000 at +20.06% on a pull
+# request that never touched sort. Same-runner comparison holds most benchmarks
+# to +/-1-3%, but the tail reaches 20%. A real regression looks nothing like
+# that — the deliberate one in that same run measured +117% to +188% — so 30
+# costs no detection power and stops the gate crying wolf.
 #
 # Only the sec/op section is gated. B/op and allocs/op changes are reported in
 # the pull-request comment but do not fail the build on their own — an
@@ -18,7 +25,7 @@ set -euo pipefail
 
 OLD="${1:?usage: bench-gate.sh old.txt new.txt}"
 NEW="${2:?usage: bench-gate.sh old.txt new.txt}"
-THRESHOLD="${THRESHOLD:-20}"
+THRESHOLD="${THRESHOLD:-30}"
 
 CSV="$(mktemp)"
 trap 'rm -f "$CSV"' EXIT
