@@ -218,29 +218,65 @@ scaling ratios are not.
 - Allocation counts drift by 1–3 out of 14,000–1,200,000 (~0.002%) between runs,
   only at n≥1000. That is `allocs/op` integer rounding plus Go's randomised map
   iteration order, not setup leaking into the measurement.
-- Complexity matches expectations for `filter` (10.2x, 9.9x per 10x rows) and
-  `sort` (10.1x, 11.5x — n log n).
+- Complexity matches expectations for `filter` (10.2x, 9.9x per 10x rows).
 
-### Finding: `window` and `topPerGroup` are superlinear in partition size
+### Corrected: the original `sort` benchmark was invalid
 
-Both scale at roughly 18x per 10x rows (≈ n^1.27) when the partition count is
-held at 20, well above the n log n their per-partition sort would predict.
+The first recorded run reported `sort` at 10.1x/11.5x, apparently clean n log n.
+That was wrong. `sortOp.Apply` reorders its input **in place**, and the
+benchmark reused one slice across iterations — so every iteration after the
+first sorted already-sorted data, the best case for a stable sort.
 
-Isolated by holding partition *size* constant instead of partition *count*:
+| `sort` | n=100 | n=1000 | n=10000 | ratios |
+|---|---|---|---|---|
+| Reused slice (original, invalid) | 3.2µs | 33µs | 423µs | 10.3x, 12.7x |
+| Fresh order each iteration (correct) | 29.1µs | 453µs | 6.90ms | 15.6x, 15.2x |
 
-| Shape | n=100 → 1000 → 10000 | Ratios |
+The real cost is roughly 15x higher. `benchOpReordering` now restores input
+order before each timed iteration; `sort` is the only operator in the suite that
+reorders in place (`dedupe` copies first, and the rest build new slices).
+
+`window` was checked for the same class of error — it writes a field into each
+row, so iteration 1 inserts a map key and later ones only update it — but fresh
+versus reused measured within noise, so its numbers stand.
+
+### Root cause: the row comparator, shared by four operators
+
+With the baseline corrected, `window` is not anomalous. Both it and `sort` scale
+at ~15-17x per 10x rows, and a CPU profile of `window` at n=10000 shows why:
+
+| Cost | Share | Why |
 |---|---|---|
-| `window`, partition size fixed at 50 | 28.2µs → 335µs → 3.73ms | 11.9x, 11.1x — linear |
-| `window`, single partition of size n | 34.9µs → 589µs → 8.58ms | 16.9x, 14.6x — superlinear |
+| `runtime.mapaccess1_faststr` | 27% | every comparison re-reads fields out of the row map |
+| `aeshashbody` | 8% | hashing those string keys |
+| `compareValues` | 20% | the comparison itself |
+| `strings.ToLower` | 4.7% | `rowsLess` lowercases the **constant** `ob.Dir` on every comparison |
+| `sort.symMerge` + `rotate` | ~13% | `sort.SliceStable`'s O(n log² n) swap machinery |
 
-So the cost is superlinear in **partition size**, not in row count. Allocations
-follow the same split: linear (9.2x, 10.7x) with fixed partition size,
-superlinear (15.7x, 12.5x) with one growing partition.
+So a comparison sort with an expensive comparator: O(n log n) comparisons, each
+paying two map lookups and a redundant `strings.ToLower`, on top of a stable sort
+whose swap count carries an extra log factor.
 
-Practical impact: a `window` over a low-cardinality partition key on a large
-result set costs disproportionately more than the row count suggests. Not
-investigated further — it needs its own diagnosis, and the point of this suite
-was to surface it.
+`rowsLess` is shared by four call sites — `window`, `topPerGroup`, `dedupe`, and
+the `fillNulls` path in `quality.go` — so all four carry the same cost.
+
+### Validated fix (prototyped, not applied)
+
+Decorate-sort-undecorate: extract each row's order-key values once (O(n) map
+lookups instead of O(n log n)), precompute direction at build time instead of
+per comparison, and use `sort.Slice` with an explicit original-index tiebreak,
+which is equivalent to a stable sort without symMerge's rotations.
+
+| `window`, single partition | n=100 | n=1000 | n=10000 | scaling |
+|---|---|---|---|---|
+| Current | 33.4µs | 580µs | 9.15ms | 17.4x, 15.8x |
+| Prototype | 17.6µs | 246µs | 3.28ms | 14.0x, 13.4x |
+| Speedup | 1.90x | 2.36x | 2.79x | |
+
+The prototype lands on clean n log n, which is the correct complexity for a
+comparison sort — the excess was the comparator, not the algorithm. It trades
+one extra allocation per row for the key slice (20,420 → 30,068 allocs at
+n=10000); a flat backing array would recover most of that.
 
 ### Gate verification (pull request #1, since closed)
 

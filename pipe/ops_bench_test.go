@@ -58,6 +58,40 @@ func benchOp(b *testing.B, name string, cardinality int, cfg map[string]any, oct
 	})
 }
 
+// benchOpReordering is benchOp for operators that reorder their input slice in
+// place. Those must not reuse one slice across iterations: after the first pass
+// the input is already sorted, so every later iteration measures the best case
+// rather than the real one. On `sort` that understated the true cost by ~15x
+// and masked its scaling entirely.
+//
+// Restoring is a slice copy, not a deep copy. The element maps are shared and
+// untouched; only the ordering is reset, which is precisely what these
+// operators disturb.
+func benchOpReordering(b *testing.B, name string, cardinality int, cfg map[string]any, octx *OpContext) {
+	b.Helper()
+	b.Run(name, func(b *testing.B) {
+		for _, n := range benchdata.Sizes() {
+			master := benchdata.Rows(n, cardinality)
+			work := make([]dsl.Row, n)
+			op := buildOp(b, cfg, octx)
+			ctx := withScope(context.Background(), "w1", "p1")
+			b.Run("n="+strconv.Itoa(n), func(b *testing.B) {
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					b.StopTimer()
+					copy(work, master)
+					b.StartTimer()
+					if _, err := op.Apply(ctx, work); err != nil {
+						b.Fatalf("apply: %v", err)
+					}
+				}
+				b.ReportMetric(float64(n)*float64(b.N)/b.Elapsed().Seconds(), "rows/s")
+			})
+		}
+	})
+}
+
 // BenchmarkPipe covers the operators that need no external service. These are
 // the ones whose cost can scale non-linearly, plus filter — linear, but the
 // hottest path in the language, so worth guarding.
@@ -79,7 +113,8 @@ func BenchmarkPipe(b *testing.B) {
 		"aggs": []map[string]any{{"fn": "count", "as": "total"}},
 	}, octx)
 
-	benchOp(b, "sort", 20, map[string]any{
+	// sortOp reorders its input in place — see benchOpReordering.
+	benchOpReordering(b, "sort", 20, map[string]any{
 		"op": "sort", "by": []map[string]any{{"field": "score", "dir": "desc"}},
 	}, octx)
 
