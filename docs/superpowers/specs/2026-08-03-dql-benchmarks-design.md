@@ -203,6 +203,63 @@ Before the work is considered done:
 4. The workflow is exercised on a real pull request, including a deliberately
    slowed operator, to confirm the gate actually fails.
 
+## Baseline findings (2026-08-03, Apple M3 Max)
+
+Recorded from the first full run. Absolute numbers are machine-specific; the
+scaling ratios are not.
+
+### Verification results
+
+- All benchmarks run clean; the full test suite still passes.
+- Fixture setup is outside the timed region, proven by contrast: generating
+  10,000 rows costs 119,758 allocs/op, while `sort` at n=10000 reports 2
+  allocs/op and `groupBy` reports 0.
+- Allocation counts drift by 1–3 out of 14,000–1,200,000 (~0.002%) between runs,
+  only at n≥1000. That is `allocs/op` integer rounding plus Go's randomised map
+  iteration order, not setup leaking into the measurement.
+- Complexity matches expectations for `filter` (10.2x, 9.9x per 10x rows) and
+  `sort` (10.1x, 11.5x — n log n).
+
+### Finding: `window` and `topPerGroup` are superlinear in partition size
+
+Both scale at roughly 18x per 10x rows (≈ n^1.27) when the partition count is
+held at 20, well above the n log n their per-partition sort would predict.
+
+Isolated by holding partition *size* constant instead of partition *count*:
+
+| Shape | n=100 → 1000 → 10000 | Ratios |
+|---|---|---|
+| `window`, partition size fixed at 50 | 28.2µs → 335µs → 3.73ms | 11.9x, 11.1x — linear |
+| `window`, single partition of size n | 34.9µs → 589µs → 8.58ms | 16.9x, 14.6x — superlinear |
+
+So the cost is superlinear in **partition size**, not in row count. Allocations
+follow the same split: linear (9.2x, 10.7x) with fixed partition size,
+superlinear (15.7x, 12.5x) with one growing partition.
+
+Practical impact: a `window` over a low-cardinality partition key on a large
+result set costs disproportionately more than the row count suggests. Not
+investigated further — it needs its own diagnosis, and the point of this suite
+was to surface it.
+
+### Reference throughput
+
+End-to-end via an in-memory querier, n=10000: ~3.4M rows/s classic,
+~2.8M rows/s pipe.
+
+### CI budget
+
+The full `bench-ci` profile takes 72s locally. The gate runs it twice, so
+expect roughly 5–7 minutes on a GitHub runner plus setup — within the agreed
+5–8 minute budget, but with little headroom. If it grows, cut `-count` before
+cutting coverage.
+
+### Note on `crossJoin`
+
+`crossJoin` uses a deliberately small 10-row right side. Against the shared
+1000-row side, n=10000 emits 10M rows, allocates ~8.5GB, and takes ~6s per
+iteration — that single case took 79s of a 1.4s suite. Its numbers describe
+per-pair join cost, not unbounded cross-join cost.
+
 ## Out of scope
 
 - Benchmarks for the `cmd/dql-lsp` module.
