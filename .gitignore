@@ -1,0 +1,4 @@
+# Compiled binaries. Go's cmd/<name>/ convention builds a binary named after
+# its directory, so `go build ./...` inside cmd/dql-lsp/ writes it in place.
+# Add a line here for each new cmd/ binary.
+/cmd/dql-lsp/dql-lsp
