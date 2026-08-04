@@ -276,6 +276,25 @@ generate:
 	@for m in $(MODULES); do (cd $$m && $(GOCMD) generate ./...) || exit 1; done
 	@echo "$(COLOR_GREEN)✓ Generated$(COLOR_RESET)"
 
+# Path to the docs site checkout. The operator page is generated from this
+# module's catalog, but lives in another repository, so it is refreshed on
+# request rather than by `make generate`.
+WEBSITE_DIR ?= ../website
+WEBSITE_OPERATORS := $(WEBSITE_DIR)/content/docs/dql/v1/operators.mdx
+
+.PHONY: docs-website
+## docs-website: Regenerate the operator page in the docs site (set WEBSITE_DIR if elsewhere)
+docs-website:
+	@if [ ! -d "$(dir $(WEBSITE_OPERATORS))" ]; then \
+		echo "$(COLOR_RED)Not found: $(dir $(WEBSITE_OPERATORS))$(COLOR_RESET)"; \
+		echo "$(COLOR_YELLOW)Set WEBSITE_DIR to the docs site checkout.$(COLOR_RESET)"; \
+		exit 1; \
+	fi
+	@$(GOTEST) ./pipe/ -run TestReferenceMDX_write -count=1 \
+		-args -update-website-docs=$(abspath $(WEBSITE_OPERATORS)) >/dev/null
+	@echo "$(COLOR_GREEN)✓ Wrote $(WEBSITE_OPERATORS)$(COLOR_RESET)"
+	@echo "$(COLOR_YELLOW)It lives in another repository — commit it there.$(COLOR_RESET)"
+
 .PHONY: generate-check
 ## generate-check: Fail if generated files are out of date
 generate-check: generate

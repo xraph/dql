@@ -27,7 +27,80 @@ func Reference() string {
 	b.WriteString("A pipe is an ordered chain of these operators applied to a stream of rows.\n")
 	b.WriteString("They appear below in catalog order, which follows the shape of a typical\n")
 	b.WriteString("pipe: source, filter, transform, aggregate, sort, side effect.\n\n")
+	b.WriteString(referenceBody())
+	return b.String()
+}
 
+// ReferenceMDX renders the same catalog as MDX, for a documentation site that
+// consumes MDX rather than plain Markdown.
+//
+// It exists so the published operator page is generated from the catalog like
+// docs/OPERATORS.md is, rather than copied. A copy of thirty-nine operators
+// maintained by hand in a second repository drifts within a release.
+//
+// The body is escaped for MDX, which reads `{` as the start of an expression
+// and `<` as the start of an element. The catalog contains both in prose — a
+// conditional-requirement note reads `conditional {"kind":["expr"]}` — and an
+// unescaped one is a build failure on the consuming site, not a rendering
+// blemish.
+func ReferenceMDX(title, description string) string {
+	var b strings.Builder
+	b.WriteString("---\n")
+	fmt.Fprintf(&b, "title: %s\n", title)
+	fmt.Fprintf(&b, "description: %s\n", description)
+	b.WriteString("---\n\n")
+	b.WriteString("{/* Generated from the DQL operator catalog by pipe.ReferenceMDX.\n")
+	b.WriteString("    Do not edit by hand — edit pipe/catalog.go in xraph/dql and\n")
+	b.WriteString("    run `make docs-website`. */}\n\n")
+	b.WriteString("# DQL pipe operators\n\n")
+	b.WriteString("Every operator in the pipe catalog, generated from the catalog the engine\n")
+	b.WriteString("registers, so it cannot describe an operator that does not ship.\n\n")
+	b.WriteString("A pipe is an ordered chain of these operators applied to a stream of rows.\n")
+	b.WriteString("They appear below in catalog order, which follows the shape of a typical\n")
+	b.WriteString("pipe: source, filter, transform, aggregate, sort, side effect.\n\n")
+	b.WriteString(escapeMDX(referenceBody()))
+	return b.String()
+}
+
+// escapeMDX escapes the characters MDX treats as syntax, skipping fenced code
+// blocks and inline code spans where MDX already leaves them alone.
+func escapeMDX(s string) string {
+	var out strings.Builder
+	inFence := false
+	for i, line := range strings.Split(s, "\n") {
+		if i > 0 {
+			out.WriteByte('\n')
+		}
+		if strings.HasPrefix(strings.TrimSpace(line), "```") {
+			inFence = !inFence
+			out.WriteString(line)
+			continue
+		}
+		if inFence {
+			out.WriteString(line)
+			continue
+		}
+		// Split on inline code spans; escape only the parts outside them.
+		parts := strings.Split(line, "`")
+		for j, p := range parts {
+			if j > 0 {
+				out.WriteByte('`')
+			}
+			if j%2 == 1 { // inside an inline code span
+				out.WriteString(p)
+				continue
+			}
+			p = strings.ReplaceAll(p, "{", "\\{")
+			p = strings.ReplaceAll(p, "<", "\\<")
+			out.WriteString(p)
+		}
+	}
+	return out.String()
+}
+
+// referenceBody is everything below the page header, shared by both renderers.
+func referenceBody() string {
+	var b strings.Builder
 	cat := Catalog()
 
 	b.WriteString("## Column key\n\n")
