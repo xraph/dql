@@ -352,6 +352,7 @@ func (o *asofJoinOp) Apply(ctx context.Context, in []dsl.Row) ([]dsl.Row, error)
 	}
 
 	out := make([]dsl.Row, 0, len(in))
+	plan := newMergePlan(LookupConfig{As: o.cfg.As, Select: o.cfg.Select})
 	for _, left := range in {
 		k := ""
 		if o.cfg.LeftKey != "" {
@@ -372,7 +373,7 @@ func (o *asofJoinOp) Apply(ctx context.Context, in []dsl.Row) ([]dsl.Row, error)
 			out = append(out, left)
 			continue
 		}
-		out = append(out, mergeLookup(left, match, LookupConfig{As: o.cfg.As, Select: o.cfg.Select}))
+		out = append(out, plan.merge(left, match))
 	}
 	return out, nil
 }

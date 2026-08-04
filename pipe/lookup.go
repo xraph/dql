@@ -74,8 +74,10 @@ func (o *lookupOp) Apply(ctx context.Context, in []dsl.Row) ([]dsl.Row, error) {
 
 	inner := o.cfg.Mode == "inner"
 
-	// For each left row, find the match and merge.
+	// For each left row, find the match and merge. The merge plan is built once
+	// here rather than rebuilt per row.
 	out := make([]dsl.Row, 0, len(in))
+	plan := newMergePlan(o.cfg)
 	for _, left := range in {
 		key := fmt.Sprintf("%v", left[o.cfg.On.Left])
 		match, found := index[key]
@@ -87,7 +89,7 @@ func (o *lookupOp) Apply(ctx context.Context, in []dsl.Row) ([]dsl.Row, error) {
 			out = append(out, left)
 			continue
 		}
-		out = append(out, mergeLookup(left, match, o.cfg))
+		out = append(out, plan.merge(left, match))
 	}
 	return out, nil
 }
@@ -130,27 +132,75 @@ func (o *lookupOp) fetchIndex(ctx context.Context, ws, proj string) (map[string]
 	return index, nil
 }
 
-func mergeLookup(left, right dsl.Row, cfg LookupConfig) dsl.Row {
-	// Decide which right-side columns contribute.
-	cols := cfg.Select
-	if len(cols) == 0 {
-		cols = make([]string, 0, len(right))
-		for k := range right {
-			cols = append(cols, k)
-		}
+// mergePlan hoists the parts of a merge that do not vary per row.
+//
+// mergeLookup previously rebuilt both for every left row: it materialised the
+// right row's key list into a fresh slice, and recomputed `as + "_" + column`
+// for every column. Neither depends on the row, and together they accounted for
+// almost all allocation in lookup, asofJoin, and crossJoin — the three most
+// expensive operators in the suite.
+//
+// A plan is built once per Apply and used for that call's rows. It is not
+// shared between calls, so the cache needs no synchronisation.
+type mergePlan struct {
+	sel  []string
+	as   string
+	keys map[string]string // right column -> output key
+}
+
+func newMergePlan(cfg LookupConfig) *mergePlan {
+	p := &mergePlan{sel: cfg.Select, as: cfg.As}
+	if cfg.As != "" {
+		p.keys = make(map[string]string, len(cfg.Select))
 	}
-	out := make(dsl.Row, len(left)+len(cols))
+	return p
+}
+
+// outKey names a right-side column in the output, caching the prefixed form.
+// The cache fills lazily, so right rows with differing key sets still work.
+func (p *mergePlan) outKey(col string) string {
+	if p.as == "" {
+		return col
+	}
+	if k, ok := p.keys[col]; ok {
+		return k
+	}
+	k := p.as + "_" + col
+	p.keys[col] = k
+	return k
+}
+
+func (p *mergePlan) merge(left, right dsl.Row) dsl.Row {
+	width := len(left)
+	if len(p.sel) > 0 {
+		width += len(p.sel)
+	} else {
+		width += len(right)
+	}
+	out := make(dsl.Row, width)
 	for k, v := range left {
 		out[k] = v
 	}
-	for _, c := range cols {
-		key := c
-		if cfg.As != "" {
-			key = cfg.As + "_" + c
+	if len(p.sel) > 0 {
+		// right[c] on an absent column yields nil, which is written explicitly
+		// so callers can tell "matched but absent" from "no match".
+		for _, c := range p.sel {
+			out[p.outKey(c)] = right[c]
 		}
-		out[key] = right[c]
+		return out
+	}
+	// Iterate the right row directly. Collecting its keys into a slice first
+	// was a per-row allocation that bought nothing.
+	for c, v := range right {
+		out[p.outKey(c)] = v
 	}
 	return out
+}
+
+// mergeLookup merges a single pair. Hot paths should build a mergePlan once and
+// call merge per row instead.
+func mergeLookup(left, right dsl.Row, cfg LookupConfig) dsl.Row {
+	return newMergePlan(cfg).merge(left, right)
 }
 
 func lookupFactory(raw json.RawMessage, octx *OpContext) (Operator, error) {

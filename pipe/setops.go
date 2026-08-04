@@ -233,9 +233,10 @@ func (o *crossJoinOp) Apply(ctx context.Context, in []dsl.Row) ([]dsl.Row, error
 		return nil, fmt.Errorf("crossJoin %s: fetch right: %w", o.cfg.Dataset, err)
 	}
 	out := make([]dsl.Row, 0, len(in)*len(rightRes.Rows))
+	plan := newMergePlan(LookupConfig{As: o.cfg.As, Select: o.cfg.Select})
 	for _, l := range in {
 		for _, r := range rightRes.Rows {
-			out = append(out, mergeLookup(l, r, LookupConfig{As: o.cfg.As, Select: o.cfg.Select}))
+			out = append(out, plan.merge(l, r))
 		}
 	}
 	return out, nil
