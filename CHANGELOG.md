@@ -1,3 +1,9 @@
+## [1.1.1](https://github.com/xraph/dql/compare/v1.1.0...v1.1.1) (2026-08-04)
+
+### Documentation
+
+* **bench:** record the post-optimisation baseline ([a60ada4](https://github.com/xraph/dql/commit/a60ada489a778a640f95c9cad44119e8d8ad3df8))
+
 ## [1.1.0](https://github.com/xraph/dql/compare/v1.0.0...v1.1.0) (2026-08-04)
 
 ### Features
