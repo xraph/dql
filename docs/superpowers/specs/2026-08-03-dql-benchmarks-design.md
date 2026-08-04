@@ -353,6 +353,100 @@ by the benchmarks.
 End-to-end via an in-memory querier, n=10000: ~3.4M rows/s classic,
 ~2.8M rows/s pipe.
 
+## Recorded baseline (2026-08-04, post-optimisation)
+
+`make bench` (`-run=^$ -bench=. -benchmem -benchtime=5s`), 81 benchmarks, no
+failures. Apple M3 Max, darwin/arm64, Go 1.26.
+
+**Read these as a reference point, not as a second measurement of the
+optimisation.** They were taken at `-benchtime=5s`, while the before/after
+percentages above came from matched `-benchtime=200ms -count=6` benchstat runs.
+Comparing across the two conditions would overstate the gains; the benchstat
+figures remain authoritative for before/after.
+
+### Scaling — the check that matters
+
+Every optimised operator now sits at n log n rather than the 15-17x per 10x rows
+that opened the investigation.
+
+| Operator | 100→1k | 1k→10k | Expected |
+|---|---|---|---|
+| `filter` | 11.0x | 8.8x | linear |
+| `distinct` | 9.8x | 10.0x | linear |
+| `histogram` | 7.3x | 9.2x | linear |
+| `aggregate` | 7.9x | 6.9x | linear (sub-linear from amortised map growth) |
+| `sort` | 11.9x | 13.4x | n log n |
+| `dedupeOrdered` | 13.6x | 13.7x | n log n |
+| `topPerGroup` | 9.8x | 12.4x | n log n |
+| `window` | 14.8x | 10.7x | n log n |
+
+A ratio drifting toward 17x+ on any of these is the signal that the comparator
+regression has come back.
+
+### Cost at n=10000
+
+| Operator | ns/op | B/op | allocs/op |
+|---|---:|---:|---:|
+| `crossJoin` | 64,990,834 | 85,254,889 | 1,200,004 |
+| `asofJoin` | 9,679,595 | 8,820,013 | 120,017 |
+| `intersect` | 7,344,104 | 8,500,918 | 104,076 |
+| `lookup` | 7,189,005 | 8,787,069 | 131,014 |
+| `except` | 6,829,325 | 7,999,843 | 96,040 |
+| `pivot` | 3,338,237 | 3,915,061 | 40,334 |
+| `window` | 2,563,687 | 1,024,666 | 15,155 |
+| `dedupeOrdered` | 2,432,320 | 926,807 | 10,041 |
+| `topPerGroup` | 1,781,418 | 598,850 | 10,292 |
+| `sort` | 1,558,940 | 327,768 | 7 |
+| `unpivot` | 1,386,887 | 3,601,921 | 30,001 |
+| `filter` | 764,808 | 209,978 | 20,001 |
+| `gapfill` | 705,707 | 439,600 | 22 |
+| `aggregate` | 677,278 | 276,984 | 10,270 |
+| `distinct` | 603,252 | 598,954 | 10,034 |
+| `dedupe` | 586,430 | 598,954 | 10,034 |
+| `histogram` | 209,675 | 3,760 | 52 |
+| `groupBy` | 1.04 | 0 | 0 |
+
+`groupBy` is a pass-through that only records keys — the real work happens in
+the following `aggregate`, so its rows/s figure is meaningless.
+
+`sort`'s 327,768 B/op against 7 allocs is the memory trade described above:
+constant allocation count, bytes linear in row count.
+
+### Compile path
+
+| Benchmark | ns/op | allocs/op |
+|---|---:|---:|
+| `Parse/simple` | 2,981 | 35 |
+| `Parse/pipe` | 10,927 | 125 |
+| `Validate/simple` | 69.5 | 1 |
+| `Validate/pipe` | 4,440 | 61 |
+| `Plan/pushdown` | 487.4 | 9 |
+| `Plan/inmemory` | 547.7 | 9 |
+| `Plan/groupBy` | 446.4 | 8 |
+| `GenerateSQL/simple` | 583.4 | 13 |
+| `GenerateSQL/compound` | 571.7 | 16 |
+
+Planning and generation are sub-microsecond and nowhere near the bottleneck;
+parsing dominates the compile path, and all of it is negligible beside row work.
+
+### End to end
+
+| Benchmark | ns/op | rows/s |
+|---|---:|---:|
+| `classic/n=100` | 28,140 | 3,553,697 |
+| `classic/n=1000` | 319,998 | 3,125,021 |
+| `classic/n=10000` | 2,939,795 | 3,401,598 |
+| `pipe/n=100` | 52,449 | 1,906,607 |
+| `pipe/n=1000` | 414,993 | 2,409,677 |
+| `pipe/n=10000` | 3,620,049 | 2,762,394 |
+
+### Open, not investigated
+
+- `asofJoin` at 9.7ms is the slowest operator that is not quadratic by
+  definition.
+- `crossJoin` allocates 85MB at n=10000 even against a deliberately small
+  10-row right side.
+
 ### CI budget
 
 Measured on a real pull request: **2m48s** end to end, including both benchmark
