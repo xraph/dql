@@ -24,6 +24,7 @@ pipe: source, filter, transform, aggregate, sort, side effect.
 | [`rename`](#rename) | Rename columns | ✅ | ✅ |  |
 | [`drop`](#drop) | Remove columns | ✅ | — |  |
 | [`compute`](#compute) | Add a computed column | ✅ | — | `eval`, `formula` |
+| [`sheet`](#sheet) | Evaluate a set of formulas in dependency order | ✅ | — | `exprCompiler` |
 | [`transform`](#transform) | Compute multiple columns in one stage | ✅ | — | `eval` |
 | [`cast`](#cast) | Convert column types | ✅ | — |  |
 | [`dropNulls`](#dropnulls) | Drop rows with nulls in named columns | ✅ | ✅ |  |
@@ -214,6 +215,42 @@ Evaluates a DTL expression (`kind:"expr"`) or Excel-style formula (`kind:"formul
   "formula": "price * 0.1",
   "kind": "formula",
   "op": "compute"
+}
+```
+
+---
+
+## `sheet`
+
+Evaluate a set of formulas in dependency order
+
+*Live-safe by default:* yes &nbsp;&nbsp; *Pushable:* no &nbsp;&nbsp; *Requires:* `exprCompiler`
+
+Each formula sets either `expr` (one value per row) or `reduce` (one value for the whole stage). Formulas may reference each other by name and run in the order their references imply, not the order they are written in. A reduce is written into every row, so the next stage sees it as an ordinary column.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `formulas` | array of object | yes | Named calculations, ordered by what they reference. |
+| `onError` | string |  | `fail` (default) aborts on the first evaluation error. `null` writes null into the failing cell and continues. Default: `fail`. |
+
+**Profit share**
+
+```json
+{
+  "formulas": [
+    {
+      "as": "profit",
+      "expr": "revenue - cost"
+    },
+    {
+      "as": "total_profit",
+      "reduce": "sum(profit)"
+    },
+    {
+      "as": "share",
+      "expr": "profit / total_profit"
+    }
+  ]
 }
 ```
 

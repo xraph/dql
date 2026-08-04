@@ -92,6 +92,9 @@ const (
 	ReqClassic Requirement = "classic"
 	// ReqAlgorithms resolves named algorithms for the algo operator.
 	ReqAlgorithms Requirement = "algorithms"
+	// ReqExprCompiler prepares an expression once and reports its references,
+	// which a sheet's dependency resolution rests on.
+	ReqExprCompiler Requirement = "exprCompiler"
 )
 
 // OpExample is one starter value for an op.
@@ -114,6 +117,7 @@ func Catalog() []OpMetadata {
 		dropMeta,
 		// Computation / quality
 		computeMeta,
+		sheetMeta,
 		transformMeta,
 		castMeta,
 		dropNullsMeta,
@@ -395,6 +399,72 @@ var distinctMeta = OpMetadata{
 		"additionalProperties": false,
 		"x-dql-property-order": []string{"by"},
 	},
+}
+
+var sheetMeta = OpMetadata{
+	Name:            "sheet",
+	Requires:        []Requirement{ReqExprCompiler},
+	Summary:         "Evaluate a set of formulas in dependency order",
+	Description:     "Each formula sets either `expr` (one value per row) or `reduce` (one value for the whole stage). Formulas may reference each other by name and run in the order their references imply, not the order they are written in. A reduce is written into every row, so the next stage sees it as an ordinary column.",
+	LiveSafeDefault: true,
+	Pushable:        false,
+	ConfigSchema: map[string]any{
+		"type":     "object",
+		"required": []string{"formulas"},
+		"properties": map[string]any{
+			"formulas": map[string]any{
+				"title":       "Formulas",
+				"description": "Named calculations, ordered by what they reference.",
+				"type":        "array",
+				"minItems":    1,
+				"items": map[string]any{
+					"type":     "object",
+					"required": []string{"as"},
+					"properties": map[string]any{
+						"as": map[string]any{
+							"title":       "Output column name",
+							"description": "Name this calculation is written to, and the name other formulas reference it by.",
+							"type":        "string",
+							"x-dql-input": InputKindColumnOutput,
+						},
+						"expr": map[string]any{
+							"title":       "Row expression",
+							"description": "Evaluated once per row. Identifiers refer to the current row. Set this or `reduce`, never both.",
+							"type":        "string",
+							"x-dql-input": InputKindDTLExpression,
+						},
+						"reduce": map[string]any{
+							"title":       "Reducing expression",
+							"description": "Evaluated once over the whole stage. Identifiers refer to entire columns. Set this or `expr`, never both.",
+							"type":        "string",
+							"x-dql-input": InputKindDTLExpression,
+						},
+					},
+					"additionalProperties": false,
+					"x-dql-property-order": []string{"as", "expr", "reduce"},
+				},
+			},
+			"onError": map[string]any{
+				"title":       "Error policy",
+				"description": "`fail` (default) aborts on the first evaluation error. `null` writes null into the failing cell and continues.",
+				"type":        "string",
+				"enum":        []string{"fail", "null"},
+				"default":     "fail",
+			},
+		},
+		"additionalProperties": false,
+		"x-dql-property-order": []string{"formulas", "onError"},
+	},
+	Examples: []OpExample{{
+		Title: "Profit share",
+		Config: map[string]any{
+			"formulas": []any{
+				map[string]any{"as": "profit", "expr": "revenue - cost"},
+				map[string]any{"as": "total_profit", "reduce": "sum(profit)"},
+				map[string]any{"as": "share", "expr": "profit / total_profit"},
+			},
+		},
+	}},
 }
 
 var sortMeta = OpMetadata{

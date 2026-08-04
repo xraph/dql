@@ -11,6 +11,7 @@ import (
 
 	"github.com/xraph/dql/dsl"
 	"github.com/xraph/dql/internal/rowops"
+	"github.com/xraph/dql/sheet"
 )
 
 // Operator aliases rowops.Operator so downstream code can keep referring to
@@ -64,6 +65,10 @@ type OpContext struct {
 	Formula    FormulaComputer
 	Classic    ClassicExecutor
 	Algorithms AlgorithmRegistry
+	// ExprCompiler prepares an expression once and reports what it references.
+	// Required by the sheet operator, whose dependency resolution rests on
+	// that analysis; see sheet.ExprCompiler for why it cannot live here.
+	ExprCompiler sheet.ExprCompiler
 }
 
 // Factory builds an Operator from its raw per-stage config.

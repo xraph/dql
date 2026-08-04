@@ -22,12 +22,13 @@ func (stubAlgos) Execute(context.Context, string, map[string]any, []rowops.Row) 
 // checks should find nothing missing under it.
 func fullyWired() *OpContext {
 	return &OpContext{
-		Eval:       stubEval{},
-		Registry:   &stubRegistry{},
-		AppCaller:  &stubAppCaller{},
-		Formula:    &stubFormula{},
-		Classic:    &stubClassic{},
-		Algorithms: stubAlgos{},
+		Eval:         stubEval{},
+		Registry:     &stubRegistry{},
+		AppCaller:    &stubAppCaller{},
+		Formula:      &stubFormula{},
+		Classic:      &stubClassic{},
+		Algorithms:   stubAlgos{},
+		ExprCompiler: testCompiler{},
 	}
 }
 
@@ -103,6 +104,7 @@ func TestHas_eachRequirementReadsItsOwnField(t *testing.T) {
 		ReqFormula:          func(o *OpContext) { o.Formula = &stubFormula{} },
 		ReqClassic:          func(o *OpContext) { o.Classic = &stubClassic{} },
 		ReqAlgorithms:       func(o *OpContext) { o.Algorithms = stubAlgos{} },
+		ReqExprCompiler:     func(o *OpContext) { o.ExprCompiler = testCompiler{} },
 	}
 
 	for req, wire := range byReq {

@@ -40,6 +40,8 @@ func (o *OpContext) has(r Requirement) bool {
 		return o.Classic != nil
 	case ReqAlgorithms:
 		return o.Algorithms != nil
+	case ReqExprCompiler:
+		return o.ExprCompiler != nil
 	default:
 		// An unknown requirement is treated as unmet. A new one added to the
 		// catalog without a case here should narrow what is offered, not
