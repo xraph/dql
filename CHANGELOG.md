@@ -1,3 +1,24 @@
+## [1.1.0](https://github.com/xraph/dql/compare/v1.0.0...v1.1.0) (2026-08-04)
+
+### Features
+
+* **pipe:** declare operator host requirements and generate the reference ([2093860](https://github.com/xraph/dql/commit/2093860e6c3db73f141a0b56dd2d76105408508e))
+
+### Bug Fixes
+
+* **ci:** stop CRLF checkouts failing the reference test on Windows ([2ee399f](https://github.com/xraph/dql/commit/2ee399fbd4b13535e6212743d733b61dff918397))
+
+### Performance Improvements
+
+* **pipe:** extract sort keys once in sortOp too ([caad64a](https://github.com/xraph/dql/commit/caad64a11561bed966163e093063f3c39f428100))
+* **pipe:** extract sort keys once instead of per comparison ([f7aa834](https://github.com/xraph/dql/commit/f7aa8347ce8b788a7512a3d270e829cdf0804fda))
+
+### Documentation
+
+* **bench:** design the benchmark suite ([cf5bbf8](https://github.com/xraph/dql/commit/cf5bbf8c0006f0bda4c11cf0d7e9a556eafbb5fa))
+* **bench:** record baseline results and the window scaling finding ([504ae3f](https://github.com/xraph/dql/commit/504ae3f8650dc6e593c1ad5fe48e5af05e232e2a))
+* **bench:** record the applied comparator fix and its measurements ([8704b2d](https://github.com/xraph/dql/commit/8704b2df8464ab0b431f8a7ff8e97ee3c017d90b))
+
 ## 1.0.0 (2026-08-03)
 
 ### Features
