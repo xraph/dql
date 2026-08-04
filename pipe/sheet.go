@@ -20,6 +20,16 @@ type sheetOp struct {
 	s *sheet.Sheet
 }
 
+// attachDelegate lets the planner offer the sheet a way to have its eligible
+// aggregates computed by the source instead of scanned here. Called after the
+// prefix is final, since that is what the aggregate query is derived from.
+func (o *sheetOp) attachDelegate(classic ClassicExecutor, pushed *dsl.QueryDSL) {
+	if classic == nil || pushed == nil {
+		return
+	}
+	o.s.SetReduceDelegate(&reduceDelegate{classic: classic, pushed: pushed})
+}
+
 func (o *sheetOp) Name() string     { return "sheet" }
 func (o *sheetOp) IsLiveSafe() bool { return true }
 

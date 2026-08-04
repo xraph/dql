@@ -27,6 +27,9 @@ type Sheet struct {
 	// disableKernels forces every reduce through the compiler. Set only by the
 	// equivalence tests, which assert the two paths agree.
 	disableKernels bool
+
+	// delegate computes eligible aggregates elsewhere. See pushdown.go.
+	delegate ReduceDelegate
 }
 
 // Compile validates a sheet, resolves its dependency order, and prepares every
@@ -136,9 +139,15 @@ func (s *Sheet) Apply(ctx context.Context, in []rowops.Row) (*Result, error) {
 	run := &runState{
 		// One args map, reused for every row of every formula. CompiledExpr is
 		// contractually forbidden from retaining it.
-		args:    make(map[string]any, len(s.order)+8),
-		columns: make(map[string]Column, len(s.order)),
+		args:      make(map[string]any, len(s.order)+8),
+		columns:   make(map[string]Column, len(s.order)),
+		delegated: map[string]any{},
 	}
+
+	// Asked before the walk so a delegated answer is already in hand when the
+	// reduce that needs it comes round, and so one round trip covers them all
+	// rather than one per reduce.
+	s.delegateReduces(ctx, run, res)
 
 	for _, f := range s.order {
 		// Checked per formula rather than per row: one column's evaluation is
@@ -189,6 +198,13 @@ func (s *Sheet) evalColumn(ctx context.Context, f Formula, in []rowops.Row, run 
 
 func (s *Sheet) evalReduce(ctx context.Context, f Formula, in []rowops.Row, run *runState, res *Result) error {
 	args := run.args
+	if v, ok := run.delegated[f.As]; ok {
+		if err := checkDelegated(f.As, v); err != nil {
+			return err
+		}
+		res.Scalars[f.As] = v
+		return nil
+	}
 	if k, colName, ok := s.kernelFor(f); ok {
 		col, err := s.columnFor(colName, in, run, res)
 		if err != nil {
@@ -290,6 +306,9 @@ func (s *Sheet) columnFor(name string, in []rowops.Row, run *runState, res *Resu
 type runState struct {
 	args    map[string]any
 	columns map[string]Column
+	// delegated holds answers supplied by a ReduceDelegate, keyed by formula
+	// name. A reduce absent from here is computed locally.
+	delegated map[string]any
 }
 
 func (r *Result) record(formula string, row int, err error) {

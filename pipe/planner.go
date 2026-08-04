@@ -241,6 +241,11 @@ outer:
 		if err != nil {
 			return nil, fmt.Errorf("pipe[%d]: %w", i, err)
 		}
+		// The prefix is final by now, so an operator that can have work done
+		// by the source can be told where to send it.
+		if sh, ok := op.(*sheetOp); ok && octx != nil {
+			sh.attachDelegate(octx.Classic, pushed)
+		}
 		plan.InMemoryOps = append(plan.InMemoryOps, op)
 		plan.InMemoryStages = append(plan.InMemoryStages, q.Pipe[i].Op)
 		plan.InMemoryIDs = append(plan.InMemoryIDs, q.Pipe[i].ID)
