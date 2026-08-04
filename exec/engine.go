@@ -15,6 +15,7 @@ import (
 	"github.com/xraph/dql/sqlgen"
 
 	"github.com/xraph/dql/pipe"
+	"github.com/xraph/dql/sheet"
 )
 
 // EngineConfig holds configuration for the query engine.
@@ -79,6 +80,16 @@ func (e *Engine) SetFormulaComputer(c pipe.FormulaComputer) {
 		return
 	}
 	e.pipeExec.OpContext().Formula = c
+}
+
+// SetExprCompiler wires the host's expression compiler into the pipe
+// OpContext. The sheet operator requires it: without one a sheet cannot be
+// planned at all, and MissingRequirements reports it as unavailable.
+func (e *Engine) SetExprCompiler(c sheet.ExprCompiler) {
+	if e.pipeExec == nil {
+		return
+	}
+	e.pipeExec.OpContext().ExprCompiler = c
 }
 
 // SetAlgorithmRegistry wires the algorithm extension's catalog into the pipe
@@ -326,20 +337,9 @@ func (e *Engine) executeSQL(ctx context.Context, sqlStr string, params []any) ([
 
 	for sqlRows.Next() {
 		scanned++
-		// Create scan destinations
-		values := make([]any, len(columns))
-		ptrs := make([]any, len(columns))
-		for i := range values {
-			ptrs[i] = &values[i]
-		}
-
-		if err := sqlRows.Scan(ptrs...); err != nil {
-			return nil, scanned, fmt.Errorf("scan row: %w", err)
-		}
-
-		row := make(dsl.Row, len(columns))
-		for i, col := range columns {
-			row[col] = convertValue(values[i])
+		row, err := scanRow(sqlRows, columns)
+		if err != nil {
+			return nil, scanned, err
 		}
 		rows = append(rows, row)
 	}
@@ -349,6 +349,28 @@ func (e *Engine) executeSQL(ctx context.Context, sqlStr string, params []any) ([
 	}
 
 	return rows, scanned, nil
+}
+
+// scanRow reads the current row into a dsl.Row.
+//
+// Shared by the materialising and streaming paths deliberately: the two must
+// produce identical values for identical input, and two copies of the scan and
+// conversion would be free to drift apart on exactly the type edges that are
+// hardest to notice.
+func scanRow(sqlRows SQLRows, columns []string) (dsl.Row, error) {
+	values := make([]any, len(columns))
+	ptrs := make([]any, len(columns))
+	for i := range values {
+		ptrs[i] = &values[i]
+	}
+	if err := sqlRows.Scan(ptrs...); err != nil {
+		return nil, fmt.Errorf("scan row: %w", err)
+	}
+	row := make(dsl.Row, len(columns))
+	for i, col := range columns {
+		row[col] = convertValue(values[i])
+	}
+	return row, nil
 }
 
 // convertValue converts a scanned SQL value to a Go-friendly type.
