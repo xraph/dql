@@ -34,10 +34,16 @@ func TestReference_committedFileIsCurrent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read %s: %v\nrun: make generate", referencePath, err)
 	}
-	if string(want) != got {
+	// Compared with line endings normalised. .gitattributes pins LF so a fresh
+	// checkout matches, but an existing Windows working copy keeps CRLF until
+	// someone runs `git add --renormalize .` — and a line-ending difference is
+	// not staleness, which is the only thing this test is meant to catch.
+	if normalizeEOL(string(want)) != normalizeEOL(got) {
 		t.Errorf("%s is stale — the catalog has changed since it was generated.\nrun: make generate", referencePath)
 	}
 }
+
+func normalizeEOL(s string) string { return strings.ReplaceAll(s, "\r\n", "\n") }
 
 func TestReference_documentsEveryOperator(t *testing.T) {
 	ref := Reference()

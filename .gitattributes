@@ -1,0 +1,11 @@
+# Every tracked file in this repository is LF. Declare it, so a checkout on
+# Windows — where git defaults to core.autocrlf=true — does not rewrite them to
+# CRLF.
+#
+# This is not cosmetic. pipe/reference_test.go compares docs/OPERATORS.md
+# byte-for-byte against what the catalog generates, and the generator emits LF.
+# A CRLF checkout made that test fail on windows-latest only, reporting the
+# reference as "stale" when nothing about the catalog had changed.
+#
+# text=auto still lets git detect and leave binary files alone.
+* text=auto eol=lf
