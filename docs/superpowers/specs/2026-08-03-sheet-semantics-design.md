@@ -43,7 +43,7 @@ the existing operators without the author doing the resolver's job themselves.
 |---|---|
 | Semantics | `expr` (column) and `reduce` (scalar) formulas, resolved by dependency |
 | Execution | Columnar store, compile-once evaluation, topological walk |
-| Expression seam | Optional `ExprCompiler` on `OpContext`, falling back to `ExprEvaluator` |
+| Expression seam | Required `ExprCompiler` on `OpContext`, declared as `ReqExprCompiler` |
 | Scale | Streaming input when the sheet is the first stage; spill for computed columns |
 | Pushdown | `count / sum / avg / min / max` over source columns, batched into one query |
 | Extensibility | Host-registered `reduce` and `window` kernels, per-`OpContext` |
@@ -178,30 +178,51 @@ It takes the source text on every call, so a host implementing only this must
 re-parse per row. That is precisely the cost this design exists to remove, and
 it is not a cost DQL can remove on the host's behalf.
 
-So `OpContext` gains an **optional** companion:
+So `OpContext` gains a companion interface, and the `sheet` operator **requires**
+it:
 
 ```go
-// ExprCompiler is the compile-once form of ExprEvaluator. A host that can
-// prepare an expression ahead of evaluation should implement it; the sheet
-// falls back to ExprEvaluator when it is absent, at one parse per row.
+// ExprCompiler prepares an expression once for repeated evaluation, and
+// reports what it references. The sheet operator requires it: dependency
+// resolution is not optional for a sheet, and neither is the analysis it
+// rests on.
 type ExprCompiler interface {
-    Compile(expr string, params []string) (CompiledExpr, error)
+    // FreeIdentifiers reports the unbound names the expression references,
+    // excluding names bound within it (lambda parameters, let bindings) and
+    // excluding called function names.
+    FreeIdentifiers(expr string) ([]string, error)
+
+    // Compile prepares an expression whose free identifiers will be supplied
+    // as args. Returns a parse or resolution error rather than deferring it
+    // to evaluation.
+    Compile(expr string) (CompiledExpr, error)
 }
 
 type CompiledExpr interface {
+    // Eval binds args and evaluates. Implementations must not retain args:
+    // the sheet reuses one map across every row.
     Eval(ctx context.Context, args map[string]any) (any, error)
 }
 ```
 
-`params` is the free-identifier set the walker produced, so a host that
-declares parameters ahead of time — as a typed expression language must — gets
-them without re-deriving them.
+`FreeIdentifiers` is on the host side because it cannot be anywhere else.
+Extracting the names an expression references means parsing it, parsing means
+owning the grammar, and DQL does not own the expression language — that is the
+entire point of the `ExprEvaluator` seam. A regex over expression text is the
+alternative, and it is not a viable one: it matches identifiers inside string
+literals, so a formula named `status` and an expression containing `"status"`
+yield an edge that does not exist, which surfaces as a circular-dependency
+error for an acyclic graph.
 
-This keeps `go.mod` empty: DQL defines the interface, the host satisfies it.
-DTL satisfies it directly through its existing compiler and executor, but that
-is the host's wiring decision, not a dependency of this module. When only
-`ExprEvaluator` is present the sheet still works, and `/explain` says it is
-running in the uncompiled mode so the cost is visible rather than mysterious.
+This keeps `go.mod` empty: DQL defines the interfaces, the host satisfies them.
+
+There is no degraded fallback to `ExprEvaluator`. Without free identifiers
+there is no dependency graph, and without a dependency graph a sheet is just a
+`compute` chain the author has to order by hand — the thing this design exists
+to replace. A host that has not supplied an `ExprCompiler` cannot run `sheet`,
+and says so through the existing mechanism: the operator declares
+`ReqExprCompiler`, `MissingRequirements` reports it, and completions omit the
+stage.
 
 ### Compile once, bind narrow
 
@@ -218,20 +239,14 @@ fifty-column sheet to read two of them.
 
 ### Dependency extraction
 
-An AST walker collecting free identifiers, respecting binding forms — lambda
-parameters and `let` bindings in block expressions. Roughly eighty lines, and
-exact.
+`ExprCompiler.FreeIdentifiers` supplies the names each formula references; see
+*The expression seam* for why the analysis lives on the host side.
 
-It must be exact rather than heuristic. A regex over expression text matches
-identifiers inside string literals, so a formula named `status` and an
-expression containing `"status"` produce an edge that is not there — and a
-spurious edge in a dependency graph surfaces as a circular-dependency error for
-a graph that has no cycle. The compiler's existing dependency list records
-called function names only, so there is nothing to reuse; this is new code.
+The sheet keeps only the names that resolve to something — a source column or
+another formula. Anything else is an error naming the unresolved identifier, so
+a typo fails at plan time rather than binding to nil at row time.
 
-Candidate to upstream as `ast.FreeIdents` once it has settled.
-
-Dependencies feed Kahn's algorithm over the combined `expr` and `reduce` set.
+Those edges feed Kahn's algorithm over the combined `expr` and `reduce` set.
 
 ### Evaluation
 
@@ -519,7 +534,6 @@ output.
 | **Parity: pushdown** | Every fixture with pushdown enabled and forced off — identical results |
 | **Parity: streaming** | Every fixture with a cursor source and a slice source — identical results |
 | **Parity: spill** | Every fixture with the budget at its natural size and at near-zero — identical results |
-| **Parity: compiled** | Every fixture against a host providing `ExprCompiler` and one providing only `ExprEvaluator` — identical results |
 | Null semantics | Kernel results against the database's own for the pushable five, over empty and null-bearing columns |
 | Errors | Each plan-time condition produces its message; `onError` policies behave and the error cap holds |
 | Doc examples | Every example in the operator reference executes and produces its documented output |
@@ -537,7 +551,7 @@ Each phase leaves the tree green and useful.
 | Phase | Delivers |
 |---|---|
 | 1 | `sheet` package: column store, builders, free-identifier walker, DAG. No operator yet — pure units |
-| 2 | The operator: `expr` and `reduce`, evaluator-backed reduces only, materialised input, registered in the catalog. Includes `ExprCompiler` and its `ExprEvaluator` fallback. End to end and shippable |
+| 2 | The operator: `expr` and `reduce`, compiler-backed reduces only, materialised input, registered in the catalog with `ReqExprCompiler`. End to end and shippable |
 | 3 | Native reduce kernels, with the kernel-versus-fallback equivalence suite |
 | 4 | Pushdown, with the pushdown parity suite |
 | 5 | `RowSource` and streaming input, with the streaming parity suite |
@@ -555,5 +569,5 @@ Phases 4, 5 and 6 are independent of each other and may land in any order.
 |---|---|
 | Inline aggregate sugar | Phase 8 — the reduce registry defines the aggregate set |
 | Compiling expressions to SQL, making `sum(profit)` pushable | Nothing in this design; it is simply a separate project |
-| Upstreaming the free-identifier walker as `ast.FreeIdents` | Letting it settle here first |
+| A DQL-side expression analyser, removing `ReqExprCompiler` | Would require DQL to own an expression grammar, which the `ExprEvaluator` seam exists to avoid |
 | Sheet-to-sheet references across stages | No demonstrated need; a second sheet can read the first's output columns as ordinary columns |
