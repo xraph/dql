@@ -273,6 +273,22 @@ representation buys two things:
 Reduces are what a sheet does most of, which is where the representation earns
 its cost.
 
+Both claims are load-bearing enough to measure rather than assert, and the
+first implementation realised neither. Two things had to be true for them to
+hold, and `sheet/sheet_bench_test.go` now pins both:
+
+- The builder must spend its capacity hint on the **typed backing**, not only
+  on the null bitmap. Without that a 100k-row column reallocates through the
+  doublings and the store measures 1.8x smaller than row maps rather than 9x.
+- Columns must be **built once per run and reused**. Rebuilding one per reduce
+  makes construction dominate the scan, and the kernel path measures slower
+  than the boxed path it replaces.
+
+With both, over 100k rows x 10 columns: 8.2MB of columns against 75.2MB of row
+maps, and four reduces over one column at 1.5x the speed of the compiled path
+in an eighth of the memory — flat as reduces are added, where the boxed path is
+linear.
+
 ### Streaming input
 
 An optional interface, used only when the sheet is the first stage:
@@ -559,7 +575,30 @@ Each phase leaves the tree green and useful.
 | 7 | Window kind and the built-in window set |
 | 8 | Host registry on `OpContext`, completions, `/explain` attribution |
 
-Phases 4, 5 and 6 are independent of each other and may land in any order.
+Phases 5 and 6 are independent of each other. **Phase 4 is not independent of
+phase 5**, contrary to an earlier revision of this table.
+
+Pushdown's correct form needs a capability streaming provides, and its benefit
+needs one too. Three facts establish it, all verified against the code:
+
+- The sheet always receives materialised rows: the executor runs the classic
+  prefix, holds the result as `[]dsl.Row`, and only then runs the in-memory
+  tail. When a reduce executes, every value it needs is already in memory, so
+  pushing it to the database buys a round trip and saves a linear scan over
+  data already held.
+- The prefix always carries a `LIMIT` — the executor sets one to `MaxRows`
+  whenever in-memory ops follow — and `sqlgen` emits `LIMIT` at statement
+  level. `SELECT sum(x) FROM t WHERE … LIMIT n` aggregates every matching row
+  and then limits the single result row, which is not "aggregate the first n".
+  The correct form is `SELECT sum(x) FROM (… LIMIT n) t`, and the document
+  format has no subquery source.
+- Nothing reports that the prefix was clipped. `Stats.Truncated` is set only
+  for app-source fetches, so the sheet cannot tell whether its rows are the
+  complete set — which is the one condition under which an unlimited aggregate
+  query would agree with the in-memory answer.
+
+Build 5 before 4. With the sheet driving the cursor, completeness is knowable
+and there is a materialisation worth avoiding.
 
 ---
 
