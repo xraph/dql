@@ -100,6 +100,15 @@ type Result struct {
 	Errors []CellError
 	// ErrorCount is the true total, which may exceed len(Errors).
 	ErrorCount int
+	// Complete reports whether the reduces saw every row that matched, rather
+	// than a prefix cut short by a cap.
+	//
+	// Apply sets it true: a caller that handed over a slice had everything it
+	// had. ApplyStream sets it from the source, and it is false when iteration
+	// stopped early. Aggregate pushdown may only be considered when it is
+	// true, since an aggregate computed by the database spans the whole match
+	// and would otherwise disagree with the rows being evaluated.
+	Complete bool
 }
 
 // Apply evaluates every formula over in, in dependency order.
@@ -119,6 +128,11 @@ func (s *Sheet) Apply(ctx context.Context, in []rowops.Row) (*Result, error) {
 	}
 
 	res := &Result{Rows: in, Scalars: make(map[string]any, len(s.order))}
+	// Absent means unknown, and unknown is not complete: a caller that handed
+	// over a slice with no provenance has not established that these are every
+	// matching row, and treating silence as a yes is how an aggregate ends up
+	// delegated on an assumption.
+	res.Complete, _ = sourceCompleteFrom(ctx)
 	run := &runState{
 		// One args map, reused for every row of every formula. CompiledExpr is
 		// contractually forbidden from retaining it.

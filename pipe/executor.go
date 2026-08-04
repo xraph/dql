@@ -118,6 +118,21 @@ func (e *Executor) ExecuteDetailed(ctx context.Context, q *dsl.QueryDSL, workspa
 		pushed.Limit = &cap
 	}
 
+	// When the tail wants to know whether it saw every matching row and the
+	// host can hand over a cursor, draw the prefix through it. The executor
+	// still drains it here rather than letting an operator own the cursor:
+	// the tail's first operator must stay re-runnable for live replay, which
+	// it would not be once it had consumed a one-shot source.
+	if rows, cols, stats, complete, ok, err := e.streamPrefix(ctx, plan, &pushed, workspaceID, projectID); err != nil {
+		return nil, err
+	} else if ok {
+		// Recorded only on this path. Absent means unknown, and unknown reads
+		// as incomplete downstream, which is the safe direction for anything
+		// that would otherwise delegate an aggregate on the strength of it.
+		streamCtx := withSourceComplete(ctx, complete)
+		return e.applyInMemoryOps(streamCtx, q, plan, rows, cols, stats, start, workspaceID, projectID)
+	}
+
 	classicResult, err := e.classic.Execute(ctx, &pushed, workspaceID, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("pipe: classic prefix: %w", err)
