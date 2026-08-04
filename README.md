@@ -24,12 +24,14 @@ from:
 pipe:
   - op: filter
     where: { field: status, op: "==", value: "open" }
+  - op: groupBy
+    keys: [assignee]
   - op: aggregate
-    groupBy: [assignee]
-    aggregate: [{ fn: count, as: total }]
-  - op: sortLimit
-    orderBy: [{ field: total, dir: desc }]
-    limit: 10
+    aggs: [{ fn: count, as: total }]
+  - op: sort
+    by: [{ field: total, dir: desc }]
+  - op: limit
+    n: 10
 ```
 
 > **On the name.** DQL is *Data Query Language*. It queries whatever data a
