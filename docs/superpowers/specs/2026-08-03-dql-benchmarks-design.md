@@ -440,12 +440,54 @@ parsing dominates the compile path, and all of it is negligible beside row work.
 | `pipe/n=1000` | 414,993 | 2,409,677 |
 | `pipe/n=10000` | 3,620,049 | 2,762,394 |
 
+### Joins: the merge plan was rebuilt per row (commit cc205ec)
+
+`asofJoin` was flagged above as the slowest non-quadratic operator. It turned
+out not to be an algorithmic problem at all — it scales linearly (5.3x, 10.5x).
+The cost was constant-factor, and a profile put it somewhere the operator's name
+did not suggest: **`mergeLookup`, at 99.3% of allocations and 36.6% of CPU**.
+
+The first hypothesis was wrong and measurement killed it. `parseRowTime` is
+called inside both the sort comparator and the binary search — exactly the
+pattern just fixed in `window` — but it short-circuits on `time.Time` values, so
+it is nearly free.
+
+The real waste: for every left row, `mergeLookup` rebuilt two things that do not
+depend on the row — the right row's key list, materialised into a fresh slice,
+and `as + "_" + column`, one string concatenation per column per row. About 12
+allocations per row. A `mergePlan` now hoists both out of the loop, and the
+no-Select path iterates the right row directly instead of collecting its keys
+first. The plan is per-Apply and never shared, so its cache needs no locking.
+
+`lookup` and `crossJoin` share the function, so all three improved:
+
+| Operator | n=100 | n=1000 | n=10000 |
+|---|---|---|---|
+| `lookup` | −17.9% | −27.5% | **−33.6%** |
+| `asofJoin` | −16.5% | −25.3% | **−32.3%** |
+| `crossJoin` | −32.2% | −31.6% | **−33.9%** |
+
+Geomean −28.1% time, +39.1% rows/s, −20.5% bytes, −62.1% allocations
+(~12 per row down to ~4). All at p=0.002, variance ±2–11%.
+
+**On trusting these numbers.** The first attempt produced garbage — variance to
+±895%, one nonsensical "+374% regression", and an `asofJoin` baseline of 69ms
+against a recorded 9.7ms. The machine was at load average 32 from unrelated
+Xcode and VM work. Nothing was reported from it. The run above waited for load
+below 4.0, used a git worktree for the baseline rather than stashing, and
+interleaved old/new rounds so drift hit both equally. Its `crossJoin` baseline
+of 64.71ms against the 64.99ms recorded independently is what makes it
+credible.
+
+Allocation counts were reportable throughout, being deterministic and
+independent of machine load — worth remembering when a machine is too busy to
+time anything.
+
 ### Open, not investigated
 
-- `asofJoin` at 9.7ms is the slowest operator that is not quadratic by
-  definition.
-- `crossJoin` allocates 85MB at n=10000 even against a deliberately small
-  10-row right side.
+- `crossJoin` still allocates 64MB at n=10000 against a deliberately small
+  10-row right side. Down from 81MB, but it is inherent to materialising the
+  product.
 
 ### CI budget
 
