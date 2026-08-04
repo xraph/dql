@@ -1,3 +1,26 @@
+## [1.3.0](https://github.com/xraph/dql/compare/v1.2.1...v1.3.0) (2026-08-04)
+
+### Features
+
+* **exec:** serve the pushed prefix as a cursor when nothing needs post-processing ([47b05e2](https://github.com/xraph/dql/commit/47b05e2852441963f3ce97dede8f00808213b90e))
+* **pipe:** add the sheet operator ([6407644](https://github.com/xraph/dql/commit/640764491fd3f927852042406df690d31e75faed))
+* **pipe:** pin sheet and window composition, and drop the planned window kind ([950c57b](https://github.com/xraph/dql/commit/950c57b207ba84df05acf04b0637119b5bc78403))
+* **sheet,pipe:** delegate eligible reduces to the source when the prefix was complete ([bf059dc](https://github.com/xraph/dql/commit/bf059dcb6ec84df23958a90b4b437ed0baa66b99))
+* **sheet,pipe:** draw the prefix through a cursor so completeness is knowable ([67b490a](https://github.com/xraph/dql/commit/67b490ae93195030d43b7c8c96d026f8ded78a98))
+* **sheet:** bound the column cache, spilling the least recently used ([b8040ba](https://github.com/xraph/dql/commit/b8040ba2ef62bb817dbfe2370d9851a1d7f7ef98))
+* **sheet:** let a host register its own reduce kernels, per OpContext ([c8d057a](https://github.com/xraph/dql/commit/c8d057a0429dbe7db317df6062d112bf0dc71003))
+* **sheet:** the engine — compile once, order by dependency, reduce natively ([4c929b8](https://github.com/xraph/dql/commit/4c929b8dda63d687ae0b77735ab4056d6511119c))
+* **sheet:** typed columns with a separate null bitmap, and a builder that narrows then demotes ([7111dc3](https://github.com/xraph/dql/commit/7111dc3ff32670578d36c40ea5342966106fcec4))
+
+### Performance Improvements
+
+* **sheet:** allocate columns once and reuse them across reduces ([7a9ded0](https://github.com/xraph/dql/commit/7a9ded075188a664f0afccb1a371442d38f8e6c0))
+
+### Documentation
+
+* plan the core of sheet semantics ([e62bb65](https://github.com/xraph/dql/commit/e62bb656b13b842a2c1b207a9157fdf498a04404))
+* pushdown depends on streaming, and record what the benchmarks showed ([fcd84af](https://github.com/xraph/dql/commit/fcd84af29799481384bd2eb2490a40d50554f6e4))
+
 ## [1.2.1](https://github.com/xraph/dql/compare/v1.2.0...v1.2.1) (2026-08-04)
 
 ### Documentation
