@@ -279,6 +279,10 @@ generate:
 # Path to the docs site checkout. The operator page is generated from this
 # module's catalog, but lives in another repository, so it is refreshed on
 # request rather than by `make generate`.
+#
+# You do not have to remember: the site runs a dql-operators workflow that
+# regenerates from this catalog and opens a pull request when the two diverge.
+# This target is the fast path when you are changing the catalog anyway.
 WEBSITE_DIR ?= ../website
 WEBSITE_OPERATORS := $(WEBSITE_DIR)/content/docs/dql/v1/operators.mdx
 
