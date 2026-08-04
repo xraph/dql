@@ -1,3 +1,13 @@
+## [1.1.3](https://github.com/xraph/dql/compare/v1.1.2...v1.1.3) (2026-08-04)
+
+### Performance Improvements
+
+* **pipe:** stop rebuilding the merge plan for every joined row ([b7e03e0](https://github.com/xraph/dql/commit/b7e03e04851fec957a0772c46b85068d5fd8942e))
+
+### Documentation
+
+* **bench:** record the join measurements from an idle machine ([8945ae7](https://github.com/xraph/dql/commit/8945ae73e085c48eae00d9c2fe3aedddc7fbd3de))
+
 ## [1.1.2](https://github.com/xraph/dql/compare/v1.1.1...v1.1.2) (2026-08-04)
 
 ### Documentation
