@@ -228,6 +228,8 @@ Evaluate a set of formulas in dependency order
 
 Each formula sets either `expr` (one value per row) or `reduce` (one value for the whole stage). Formulas may reference each other by name and run in the order their references imply, not the order they are written in. A reduce is written into every row, so the next stage sees it as an ordinary column.
 
+There are no window functions here on purpose. Put a `window` stage before the sheet and read its output column like any other — that keeps ordering and partitioning explicit, which an inline `lag()` would have to leave implicit.
+
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `formulas` | array of object | yes | Named calculations, ordered by what they reference. |

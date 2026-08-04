@@ -408,12 +408,46 @@ Three kinds of function, of which two need new machinery:
 |---|---|---|
 | scalar | values → value, per row | Already solved by the expression language's own builtin registration. No DQL involvement |
 | reduce | column → scalar | New |
-| window | column → column | New |
+| window | column → column | **Not built — see below** |
 
-The window kind covers `lag`, `lead`, `rank`, `dense_rank`, `row_number`,
-`first_value`, `last_value`, and moving and cumulative aggregates. Giving the
-sheet a window kind means these have one implementation rather than one per
-consumer.
+### Why there is no window kind
+
+An earlier revision called for one, on the reasoning that `lag`, `rank` and
+their neighbours existed twice — once in a host's spreadsheet layer and once in
+this repository — and that giving the sheet its own would collapse them.
+
+That reasoning was wrong, and inverted: `pipe/window.go` already implements the
+whole set with `partitionBy`, `orderBy`, `offset` and `default`. Adding a
+window kind to the sheet would have produced a **third** implementation, and a
+weaker one — a sheet has no notion of partitioning, so an inline `lag()` would
+either ignore it or reinvent it.
+
+The composition already works and is now pinned by tests:
+
+```yaml
+- op: window
+  fn: lag
+  field: revenue
+  partitionBy: [host]
+  orderBy: [{ field: ts }]
+  as: prev
+- op: sheet
+  formulas:
+    - as: growth
+      expr: "revenue - prev"
+```
+
+A window column is an ordinary column: a sheet may read it, reduce over it, and
+a window may equally rank by a column a sheet computed. Both directions are
+covered in `pipe/sheet_window_test.go`.
+
+Making the window stage explicit is also better than the inline form it
+replaces, because ordering and partitioning are precisely what a spreadsheet's
+`LAG()` leaves implicit and what makes it fragile.
+
+The duplication the phase was meant to resolve is real, but it lives in the
+host's spreadsheet layer, not here. Retiring it there in favour of this
+operator is work for that repository.
 
 ```go
 type ReduceFunc interface {
@@ -572,7 +606,7 @@ Each phase leaves the tree green and useful.
 | 4 | Pushdown, with the pushdown parity suite |
 | 5 | `RowSource` and streaming input, with the streaming parity suite |
 | 6 | Spill, with the spill parity suite |
-| 7 | Window kind and the built-in window set |
+| 7 | ~~Window kind and the built-in window set~~ — **cancelled**, see below |
 | 8 | Host registry on `OpContext`, completions, `/explain` attribution |
 
 Phases 5 and 6 are independent of each other. **Phase 4 is not independent of

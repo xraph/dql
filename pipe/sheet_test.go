@@ -172,7 +172,7 @@ func (testCompiler) Compile(expr string) (sheet.CompiledExpr, error) {
 
 func isTestOperator(tok string) bool {
 	switch tok {
-	case "+", "-", "*", "/", "sum", "count":
+	case "+", "-", "*", "/", "sum", "count", "min", "max", "avg":
 		return true
 	}
 	return false
@@ -190,8 +190,8 @@ func (e *testExpr) Eval(_ context.Context, args map[string]any) (any, error) {
 			}
 			b, a := stack[len(stack)-1], stack[len(stack)-2]
 			stack = stack[:len(stack)-2]
-			af, aok := a.(float64)
-			bf, bok := b.(float64)
+			af, aok := toTestFloat(a)
+			bf, bok := toTestFloat(b)
 			if !aok || !bok {
 				return nil, fmt.Errorf("non-numeric operand for %q", tok)
 			}
@@ -208,7 +208,7 @@ func (e *testExpr) Eval(_ context.Context, args map[string]any) (any, error) {
 				}
 				stack = append(stack, af/bf)
 			}
-		case "sum", "count":
+		case "sum", "count", "min", "max", "avg":
 			if len(stack) < 1 {
 				return nil, fmt.Errorf("stack underflow at %q", tok)
 			}
@@ -218,26 +218,43 @@ func (e *testExpr) Eval(_ context.Context, args map[string]any) (any, error) {
 			if !ok {
 				return nil, fmt.Errorf("%s: want a column, got %T", tok, v)
 			}
-			var acc float64
-			var n int64
+			var acc, lo, hi float64
+			var nonNull, numeric int64
 			for _, x := range vals {
 				if x == nil {
 					continue
 				}
-				n++
-				if f, ok := x.(float64); ok {
-					acc += f
+				nonNull++
+				f, ok := toTestFloat(x)
+				if !ok {
+					continue
 				}
+				if numeric == 0 {
+					lo, hi = f, f
+				}
+				if f < lo {
+					lo = f
+				}
+				if f > hi {
+					hi = f
+				}
+				acc += f
+				numeric++
 			}
-			if tok == "count" {
-				stack = append(stack, n)
-				continue
-			}
-			if n == 0 {
+			switch {
+			case tok == "count":
+				stack = append(stack, nonNull)
+			case numeric == 0:
 				stack = append(stack, nil)
-				continue
+			case tok == "sum":
+				stack = append(stack, acc)
+			case tok == "avg":
+				stack = append(stack, acc/float64(numeric))
+			case tok == "min":
+				stack = append(stack, lo)
+			case tok == "max":
+				stack = append(stack, hi)
 			}
-			stack = append(stack, acc)
 		default:
 			if f, err := strconv.ParseFloat(tok, 64); err == nil {
 				stack = append(stack, f)
@@ -250,4 +267,18 @@ func (e *testExpr) Eval(_ context.Context, args map[string]any) (any, error) {
 		return nil, fmt.Errorf("expression left %d values on the stack", len(stack))
 	}
 	return stack[0], nil
+}
+
+// toTestFloat widens the numeric types a window operator may produce — rank
+// yields int, arithmetic yields float64.
+func toTestFloat(v any) (float64, bool) {
+	switch x := v.(type) {
+	case float64:
+		return x, true
+	case int:
+		return float64(x), true
+	case int64:
+		return float64(x), true
+	}
+	return 0, false
 }
