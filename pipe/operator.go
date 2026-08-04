@@ -69,6 +69,10 @@ type OpContext struct {
 	// Required by the sheet operator, whose dependency resolution rests on
 	// that analysis; see sheet.ExprCompiler for why it cannot live here.
 	ExprCompiler sheet.ExprCompiler
+	// SheetFuncs holds the host's own reduce kernels for the sheet operator.
+	// Nil means the built-in set only, which is the portable one — see
+	// sheet.Registry for why this is per-context rather than global.
+	SheetFuncs *sheet.Registry
 }
 
 // Factory builds an Operator from its raw per-stage config.

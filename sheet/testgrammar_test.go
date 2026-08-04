@@ -13,9 +13,23 @@ import (
 //
 // Tokens: a number is a literal; + - * / are binary operators; sum avg min max
 // count reduce a column argument; anything else is an identifier.
-type fakeCompiler struct{ compiles int }
+type fakeCompiler struct {
+	compiles int
+	// reduces is the set of names this grammar treats as aggregates rather
+	// than as identifiers. A real host compiler knows its own language's
+	// aggregates; this is how a test says which ones it is pretending to have.
+	reduces map[string]bool
+}
 
-func newFakeCompiler() *fakeCompiler { return &fakeCompiler{} }
+func newFakeCompiler() *fakeCompiler { return newFakeCompilerWith() }
+
+func newFakeCompilerWith(extra ...string) *fakeCompiler {
+	r := map[string]bool{"sum": true, "avg": true, "min": true, "max": true, "count": true}
+	for _, name := range extra {
+		r[name] = true
+	}
+	return &fakeCompiler{reduces: r}
+}
 
 func (c *fakeCompiler) FreeIdentifiers(expr string) ([]string, error) {
 	var out []string
@@ -30,11 +44,11 @@ func (c *fakeCompiler) FreeIdentifiers(expr string) ([]string, error) {
 	for _, tok := range strings.Fields(expr) {
 		// A prefix call reduces to its argument, the way a real parser would
 		// report the free identifier rather than the whole call text.
-		if _, arg, ok := splitCall(tok); ok {
+		if _, arg, ok := c.splitCall(tok); ok {
 			add(arg)
 			continue
 		}
-		if !isIdentToken(tok) {
+		if !c.isIdentToken(tok) {
 			continue
 		}
 		add(tok)
@@ -43,25 +57,17 @@ func (c *fakeCompiler) FreeIdentifiers(expr string) ([]string, error) {
 }
 
 // splitCall recognises the prefix spelling `fn(arg)` for a known reduce.
-func splitCall(tok string) (fn, arg string, ok bool) {
+func (c *fakeCompiler) splitCall(tok string) (fn, arg string, ok bool) {
 	open := strings.IndexByte(tok, '(')
 	if open <= 0 || !strings.HasSuffix(tok, ")") {
 		return "", "", false
 	}
 	fn = tok[:open]
 	arg = tok[open+1 : len(tok)-1]
-	if arg == "" || !isReduceName(fn) {
+	if arg == "" || !c.reduces[fn] {
 		return "", "", false
 	}
 	return fn, arg, true
-}
-
-func isReduceName(name string) bool {
-	switch name {
-	case "sum", "avg", "min", "max", "count":
-		return true
-	}
-	return false
 }
 
 func (c *fakeCompiler) Compile(expr string) (CompiledExpr, error) {
@@ -70,12 +76,15 @@ func (c *fakeCompiler) Compile(expr string) (CompiledExpr, error) {
 		return nil, fmt.Errorf("empty expression")
 	}
 	c.compiles++
-	return &fakeExpr{toks: toks}, nil
+	return &fakeExpr{toks: toks, reduces: c.reduces}, nil
 }
 
-func isIdentToken(tok string) bool {
+func (c *fakeCompiler) isIdentToken(tok string) bool {
 	switch tok {
-	case "+", "-", "*", "/", "sum", "avg", "min", "max", "count":
+	case "+", "-", "*", "/":
+		return false
+	}
+	if c.reduces[tok] {
 		return false
 	}
 	if _, err := strconv.ParseFloat(tok, 64); err == nil {
@@ -84,7 +93,10 @@ func isIdentToken(tok string) bool {
 	return true
 }
 
-type fakeExpr struct{ toks []string }
+type fakeExpr struct {
+	toks    []string
+	reduces map[string]bool
+}
 
 func (e *fakeExpr) Eval(_ context.Context, args map[string]any) (any, error) {
 	var stack []any
@@ -126,18 +138,20 @@ func (e *fakeExpr) Eval(_ context.Context, args map[string]any) (any, error) {
 				}
 				stack = append(stack, af/bf)
 			}
-		case "sum", "avg", "min", "max", "count":
-			v, err := pop()
-			if err != nil {
-				return nil, err
-			}
-			r, err := fakeReduce(tok, v)
-			if err != nil {
-				return nil, err
-			}
-			stack = append(stack, r)
 		default:
-			if fn, arg, ok := splitCall(tok); ok {
+			if e.reduces[tok] {
+				v, err := pop()
+				if err != nil {
+					return nil, err
+				}
+				r, err := fakeReduce(tok, v)
+				if err != nil {
+					return nil, err
+				}
+				stack = append(stack, r)
+				continue
+			}
+			if fn, arg, ok := (&fakeCompiler{reduces: e.reduces}).splitCall(tok); ok {
 				r, err := fakeReduce(fn, args[arg])
 				if err != nil {
 					return nil, err

@@ -482,8 +482,14 @@ The same three rules apply:
    "what does this deployment support" stops being answerable per query. So
    `OpContext` gains a nullable `SheetFuncs *sheet.Registry`, alongside `Eval`,
    `Registry`, `AppCaller` and `Formula`. Nil means built-ins only.
-3. **Unknown names fail in `ValidateStages`**, with the available set in the
-   message.
+3. **An unregistered name is not an error.** This corrects an earlier revision,
+   which had unknown names failing at plan time on the assumption that the
+   registry defined what a sheet may say. It does not — the expression language
+   does. `reduce: "p95(latency)"` already works wherever the host's language has
+   `p95`; it is simply evaluated by the compiler over a boxed slice. What
+   registering a kernel adds is a scan over the typed column, and eligibility
+   for delegation when the kernel names a SQL spelling. Both are optimisations,
+   so refusing an unregistered name would reject queries that work.
 
 Registering a name that collides with a built-in returns an error rather than
 shadowing it. Shadowing `sum` would make a sheet mean something different on one
@@ -607,7 +613,7 @@ Each phase leaves the tree green and useful.
 | 5 | `RowSource` and streaming input, with the streaming parity suite |
 | 6 | Spill, with the spill parity suite |
 | 7 | ~~Window kind and the built-in window set~~ — **cancelled**, see below |
-| 8 | Host registry on `OpContext`, completions, `/explain` attribution |
+| 8 | Host registry on `OpContext` |
 
 Phases 5 and 6 are independent of each other. **Phase 4 is not independent of
 phase 5**, contrary to an earlier revision of this table.

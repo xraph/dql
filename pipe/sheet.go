@@ -66,7 +66,7 @@ func sheetFactory(raw json.RawMessage, octx *OpContext) (Operator, error) {
 		Formulas:          cfg.Formulas,
 		OnError:           cfg.OnError,
 		ColumnBudgetBytes: cfg.ColumnBudgetBytes,
-	}, octx.ExprCompiler)
+	}, octx.ExprCompiler, sheet.WithRegistry(octx.SheetFuncs))
 	if err != nil {
 		return nil, err
 	}

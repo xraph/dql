@@ -92,6 +92,19 @@ func (e *Engine) SetExprCompiler(c sheet.ExprCompiler) {
 	e.pipeExec.OpContext().ExprCompiler = c
 }
 
+// SetSheetFuncs wires the host's own reduce kernels into the pipe OpContext.
+//
+// Optional, and not a vocabulary: a sheet may already name any aggregate the
+// expression language has. Registering a kernel gives that aggregate a typed
+// scan instead of a boxed one, and lets it be delegated to the source when it
+// names a SQL spelling. See sheet.Registry.
+func (e *Engine) SetSheetFuncs(r *sheet.Registry) {
+	if e.pipeExec == nil {
+		return
+	}
+	e.pipeExec.OpContext().SheetFuncs = r
+}
+
 // SetAlgorithmRegistry wires the algorithm extension's catalog into the pipe
 // OpContext so the algo op can resolve algorithms by name.
 func (e *Engine) SetAlgorithmRegistry(reg pipe.AlgorithmRegistry) {

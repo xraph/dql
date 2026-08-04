@@ -42,6 +42,8 @@ type Sheet struct {
 	delegate ReduceDelegate
 
 	columnBudget int
+	// registry holds the host's own reduce kernels. Nil means built-ins only.
+	registry *Registry
 }
 
 // Compile validates a sheet, resolves its dependency order, and prepares every
@@ -51,7 +53,7 @@ type Sheet struct {
 // a malformed sheet fails while the query is being validated rather than
 // partway through a scan. What is left for Apply is exactly what needs a
 // schema: whether each referenced name is a real column.
-func Compile(cfg Config, c ExprCompiler) (*Sheet, error) {
+func Compile(cfg Config, c ExprCompiler, opts ...Option) (*Sheet, error) {
 	if c == nil {
 		return nil, fmt.Errorf("sheet: an expression compiler is required")
 	}
@@ -89,14 +91,18 @@ func Compile(cfg Config, c ExprCompiler) (*Sheet, error) {
 		return nil, err
 	}
 
-	return &Sheet{
+	sh := &Sheet{
 		order:        order,
 		compiled:     compiled,
 		refs:         refs,
 		isFormula:    isFormula,
 		policy:       policy,
 		columnBudget: cfg.ColumnBudgetBytes,
-	}, nil
+	}
+	for _, opt := range opts {
+		opt(sh)
+	}
+	return sh, nil
 }
 
 // Names returns the formula names in evaluation order.
@@ -280,9 +286,12 @@ func (s *Sheet) kernelFor(f Formula) (ReduceFunc, string, bool) {
 	col := refs[0]
 	src := strings.TrimSpace(f.Reduce)
 
-	for _, name := range reduceNames() {
+	for _, name := range s.reduceCandidates() {
 		if src == name+"("+col+")" || src == col+" "+name {
-			k, _ := LookupReduce(name)
+			k, ok := s.lookupReduce(name)
+			if !ok {
+				continue
+			}
 			return k, col, true
 		}
 	}
