@@ -1,3 +1,13 @@
+## [1.2.0](https://github.com/xraph/dql/compare/v1.1.3...v1.2.0) (2026-08-04)
+
+### Features
+
+* **pipe:** render the operator reference as MDX for the docs site ([e2f43fa](https://github.com/xraph/dql/commit/e2f43fa5812bd2870a859057787fce885bdfcd16))
+
+### Documentation
+
+* design sheet semantics as a first-class operator ([fa9a6fa](https://github.com/xraph/dql/commit/fa9a6fa623dbd4e3bc4725e47c30eec6885545b4))
+
 ## [1.1.3](https://github.com/xraph/dql/compare/v1.1.2...v1.1.3) (2026-08-04)
 
 ### Performance Improvements
