@@ -173,6 +173,43 @@ func TestOrdering_windowEmptyFieldClauseIsSkipped(t *testing.T) {
 	}
 }
 
+func TestOrdering_sortTiesKeepInputOrder(t *testing.T) {
+	rows := tiedRows()
+	out := applyOp(t, map[string]any{
+		"op": "sort", "by": []map[string]any{{"field": "score", "dir": "desc"}},
+	}, rows)
+
+	if len(out) != tieCount {
+		t.Fatalf("want %d rows out, got %d", tieCount, len(out))
+	}
+	// Score groups descend; within a tied group, input order must hold. The row
+	// that entered at index i must land at position wantRank(i)-1.
+	for i := 0; i < tieCount; i++ {
+		pos := wantRank(i) - 1
+		if got := out[pos]["id"]; got != strconv.Itoa(i) {
+			t.Fatalf("output position %d: id = %v, want %d — "+
+				"tie ordering is not stable", pos, got, i)
+		}
+	}
+}
+
+func TestOrdering_sortMutatesInputInPlace(t *testing.T) {
+	rows := tiedRows()
+	out := applyOp(t, map[string]any{
+		"op": "sort", "by": []map[string]any{{"field": "score", "dir": "desc"}},
+	}, rows)
+
+	// sortOp reorders the caller's slice and returns it. Callers depend on both
+	// halves of that, so pin it.
+	if &out[0] != &rows[0] {
+		t.Fatal("sort returned a different backing array; it used to sort in place")
+	}
+	if rows[0]["id"] != strconv.Itoa(tieCount-tieGroup) {
+		t.Fatalf("input slice was not reordered in place: rows[0] id = %v, want %d",
+			rows[0]["id"], tieCount-tieGroup)
+	}
+}
+
 func TestOrdering_topPerGroupTiesKeepInputOrder(t *testing.T) {
 	out := applyOp(t, map[string]any{
 		"op": "topPerGroup", "n": 2,

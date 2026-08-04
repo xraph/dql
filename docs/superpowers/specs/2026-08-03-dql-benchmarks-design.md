@@ -291,11 +291,38 @@ Two things this surfaced about the benchmarks themselves:
 
 - `dedupe` skips sorting entirely without an `orderBy`, so the original case
   never exercised the comparator. A `dedupeOrdered` case now covers it.
-- `sort` was unaffected, because `sortOp` does **not** use `rowsLess` — it has
-  its own inline comparator carrying the identical defects (`strings.ToLower`
-  per comparison, map lookups per comparison, `sort.SliceStable`). Applying
-  `orderSpec` there is the obvious follow-up and is likely the largest remaining
-  win, since `sort` is the most commonly used of these operators.
+- `sort` was initially unaffected, because `sortOp` does **not** use `rowsLess`
+  — it had its own inline comparator carrying the identical defects. It was
+  fixed in a follow-up (below).
+
+### `sortOp` follow-up, and the memory trade
+
+`sortOp` got the same treatment, plus a single-field fast path in
+`sortPermRows`: ordering by one field skips the general `[][]any` key layout,
+whose 24-byte slice header per row was the largest component of the added
+memory. That fast path improved every operator, not just `sort`.
+
+Final, measured against the pre-optimisation baseline (p=0.002 throughout):
+
+| Benchmark | n=1000 | n=10000 |
+|---|---|---|
+| `sort` | −71.6% | **−73.2%** |
+| `window` | −42.8% | **−61.8%** |
+| `topPerGroup` | −45.4% | −45.9% |
+| `dedupeOrdered` | −61.4% | −62.0% |
+
+**`sort` used to be allocation-free**, and this is the one place where the trade
+is stark rather than incidental: 56 B/op flat, at any row count, became ~33
+bytes per row (327KB at n=10000, down from 573KB before the fast path).
+`allocs/op` stays constant at 8.
+
+Whether that is the right call depends on the workload. Against the rows being
+sorted it is modest — 10,000 rows as Go maps run to several megabytes, so the
+permutation and key arrays add single-digit percent — and 3.7x less CPU is a
+good trade for it. It would be the wrong trade in a memory-constrained embedder
+sorting large result sets, and that is worth revisiting if one appears. The
+older behaviour is recoverable by keeping the in-place `sort.SliceStable` path
+for inputs below some row threshold.
 
 ### Gate verification (pull request #1, since closed)
 

@@ -54,7 +54,7 @@ func (o *topPerGroupOp) Apply(_ context.Context, in []dsl.Row) ([]dsl.Row, error
 		// Order a permutation rather than the bucket itself: ties fall back to
 		// the original index, matching the stable sort this replaced, and only
 		// the top n rows are materialised.
-		perm := spec.sortPerm(spec.keys(bucket), len(bucket))
+		perm := spec.sortPermRows(bucket)
 		for _, p := range perm[:n] {
 			out = append(out, bucket[p])
 		}

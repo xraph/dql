@@ -309,10 +309,7 @@ func (s orderSpec) compare(a, b []any) int {
 // sort.SliceStable did — without SliceStable's symMerge rotations, whose swap
 // count carries an extra log factor.
 func (s orderSpec) sortPerm(keys [][]any, n int) []int {
-	perm := make([]int, n)
-	for i := range perm {
-		perm[i] = i
-	}
+	perm := newPerm(n)
 	sort.Slice(perm, func(a, b int) bool {
 		ia, ib := perm[a], perm[b]
 		if c := s.compare(keys[ia], keys[ib]); c != 0 {
@@ -321,4 +318,45 @@ func (s orderSpec) sortPerm(keys [][]any, n int) []int {
 		return ia < ib
 	})
 	return perm
+}
+
+func newPerm(n int) []int {
+	perm := make([]int, n)
+	for i := range perm {
+		perm[i] = i
+	}
+	return perm
+}
+
+// sortPermRows orders whole rows by this spec, extracting keys itself.
+//
+// The single-field case gets a flat []any rather than the general [][]any.
+// That matters: a slice-of-slices costs a 24-byte header per row, which was the
+// largest single component of the extra memory this approach introduces, and
+// ordering by one field is overwhelmingly the common case.
+//
+// Callers that sort index subsets of a larger set (window, fillNulls) cannot
+// use this — they extract keys once for every row and sort per group.
+func (s orderSpec) sortPermRows(rows []dsl.Row) []int {
+	perm := newPerm(len(rows))
+	if len(s.fields) == 1 {
+		field, desc := s.fields[0], s.desc[0]
+		keys := make([]any, len(rows))
+		for i, r := range rows {
+			keys[i] = r[field]
+		}
+		sort.Slice(perm, func(a, b int) bool {
+			ia, ib := perm[a], perm[b]
+			c := compareValues(keys[ia], keys[ib])
+			if c == 0 {
+				return ia < ib
+			}
+			if desc {
+				return c > 0
+			}
+			return c < 0
+		})
+		return perm
+	}
+	return s.sortPerm(s.keys(rows), len(rows))
 }

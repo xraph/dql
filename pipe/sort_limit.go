@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
-	"strings"
 
 	"github.com/xraph/dql/dsl"
 )
@@ -23,26 +21,21 @@ func (o *sortOp) Name() string     { return "sort" }
 func (o *sortOp) IsLiveSafe() bool { return true }
 
 func (o *sortOp) Apply(_ context.Context, in []dsl.Row) ([]dsl.Row, error) {
-	if len(o.cfg.By) == 0 {
+	spec := newOrderSpec(o.cfg.By)
+	if spec.empty() || len(in) < 2 {
 		return in, nil
 	}
-	sort.SliceStable(in, func(i, j int) bool {
-		for _, ob := range o.cfg.By {
-			field := ob.Field
-			if field == "" {
-				continue
-			}
-			cmp := compareValues(in[i][field], in[j][field])
-			if cmp == 0 {
-				continue
-			}
-			if strings.ToLower(ob.Dir) == "desc" {
-				return cmp > 0
-			}
-			return cmp < 0
-		}
-		return false
-	})
+	// Read each row's sort fields once rather than on every comparison, and
+	// order a permutation whose ties fall back to the original index — which
+	// reproduces the stable sort this replaced. See orderSpec.
+	perm := spec.sortPermRows(in)
+	sorted := make([]dsl.Row, len(in))
+	for i, p := range perm {
+		sorted[i] = in[p]
+	}
+	// Write back into the caller's slice: sortOp has always reordered its input
+	// in place and returned it, and callers rely on both.
+	copy(in, sorted)
 	return in, nil
 }
 

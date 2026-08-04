@@ -393,7 +393,7 @@ func (o *dedupeOp) Apply(_ context.Context, in []dsl.Row) ([]dsl.Row, error) {
 	if spec := newOrderSpec(o.cfg.OrderBy); !spec.empty() {
 		// Order a permutation, then materialise. Ties fall back to the original
 		// index, matching the stable sort this replaced.
-		perm := spec.sortPerm(spec.keys(in), len(in))
+		perm := spec.sortPermRows(in)
 		rows = make([]dsl.Row, len(in))
 		for i, p := range perm {
 			rows[i] = in[p]
