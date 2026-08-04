@@ -1,3 +1,9 @@
+## [1.1.2](https://github.com/xraph/dql/compare/v1.1.1...v1.1.2) (2026-08-04)
+
+### Documentation
+
+* fix the pipe example, which named an operator that does not exist ([c6ad07a](https://github.com/xraph/dql/commit/c6ad07a74211de7f7d70dea9f0d5787fdc526dfc))
+
 ## [1.1.1](https://github.com/xraph/dql/compare/v1.1.0...v1.1.1) (2026-08-04)
 
 ### Documentation
