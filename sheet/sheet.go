@@ -14,6 +14,16 @@ type Config struct {
 	Formulas []Formula `json:"formulas"`
 	// OnError is "fail" (default) or "null". See ErrorPolicy.
 	OnError string `json:"onError,omitempty"`
+	// ColumnBudgetBytes caps the materialised columns held at once. Zero means
+	// no cap, which is the default and right for the ordinary sheet: columns
+	// are built only for reduces that take a native kernel, and delegated
+	// reduces build none at all.
+	//
+	// It earns its place on the shape this does not cover — many reduces over
+	// many distinct columns that cannot be delegated, where the cache would
+	// otherwise grow for the whole evaluation and never release a column whose
+	// last reader has already run.
+	ColumnBudgetBytes int `json:"columnBudgetBytes,omitempty"`
 }
 
 // Sheet is a compiled, ordered set of formulas ready to run over rows.
@@ -30,6 +40,8 @@ type Sheet struct {
 
 	// delegate computes eligible aggregates elsewhere. See pushdown.go.
 	delegate ReduceDelegate
+
+	columnBudget int
 }
 
 // Compile validates a sheet, resolves its dependency order, and prepares every
@@ -78,11 +90,12 @@ func Compile(cfg Config, c ExprCompiler) (*Sheet, error) {
 	}
 
 	return &Sheet{
-		order:     order,
-		compiled:  compiled,
-		refs:      refs,
-		isFormula: isFormula,
-		policy:    policy,
+		order:        order,
+		compiled:     compiled,
+		refs:         refs,
+		isFormula:    isFormula,
+		policy:       policy,
+		columnBudget: cfg.ColumnBudgetBytes,
 	}, nil
 }
 
@@ -143,6 +156,8 @@ func (s *Sheet) Apply(ctx context.Context, in []rowops.Row) (*Result, error) {
 		columns:   make(map[string]Column, len(s.order)),
 		delegated: map[string]any{},
 	}
+
+	defer run.close()
 
 	// Asked before the walk so a delegated answer is already in hand when the
 	// reduce that needs it comes round, and so one round trip covers them all
@@ -290,25 +305,106 @@ func (s *Sheet) columnFor(name string, in []rowops.Row, run *runState, res *Resu
 		return nil, fmt.Errorf("sheet: %q is a scalar, not a column", name)
 	}
 	if col, ok := run.columns[name]; ok {
+		run.touch(name)
 		return col, nil
 	}
+	// Evicted earlier. Reading it back is roughly an order of magnitude
+	// cheaper than another pass over every row map, which is the only reason
+	// the spill file exists.
+	if col, ok := run.spill.Get(name); ok {
+		run.admit(name, col, s.columnBudget)
+		return col, nil
+	}
+
 	b := NewColumnBuilder(len(in))
 	for _, row := range in {
 		b.Append(row[name])
 	}
 	col := b.Build()
-	run.columns[name] = col
+	run.admit(name, col, s.columnBudget)
 	return col, nil
 }
 
+// touch marks a column as most recently used.
+func (r *runState) touch(name string) {
+	for i, h := range r.held {
+		if h == name {
+			r.held = append(append(r.held[:i:i], r.held[i+1:]...), name)
+			return
+		}
+	}
+}
+
+// admit caches a column, evicting older ones while the budget is exceeded.
+//
+// A budget of zero disables all of it: no accounting, no eviction, no spill
+// file. That is the default, because the ordinary sheet holds one or two
+// columns and paying for a policy it never triggers would be pure overhead.
+func (r *runState) admit(name string, col Column, budget int) {
+	r.columns[name] = col
+	if budget <= 0 {
+		return
+	}
+	r.touch(name)
+	if !contains(r.held, name) {
+		r.held = append(r.held, name)
+	}
+	r.bytes += columnBytes(col)
+
+	// Never evict the column just admitted: the caller is about to read it,
+	// and evicting it would spill and restore the same bytes for nothing.
+	for r.bytes > budget && len(r.held) > 1 {
+		victim := r.held[0]
+		r.held = r.held[1:]
+		evicted := r.columns[victim]
+		delete(r.columns, victim)
+		r.bytes -= columnBytes(evicted)
+
+		if r.spill == nil {
+			st, err := newSpillStore()
+			if err != nil {
+				// No file, no restore path. The column is simply gone and
+				// will be rebuilt if it is wanted again.
+				continue
+			}
+			r.spill = st
+		}
+		r.spill.Put(victim, evicted)
+	}
+}
+
 // runState is the per-Apply scratch space: the argument map every expression
-// binds into, and the columns materialised so far.
+// binds into, the columns materialised so far, and any answers a delegate
+// supplied.
 type runState struct {
 	args    map[string]any
 	columns map[string]Column
 	// delegated holds answers supplied by a ReduceDelegate, keyed by formula
 	// name. A reduce absent from here is computed locally.
 	delegated map[string]any
+
+	// held tracks the resident columns in touch order, oldest first, and the
+	// bytes they account for. Only used when a budget is set.
+	held  []string
+	bytes int
+	spill *spillStore
+}
+
+// close releases anything the run acquired. Always safe to call.
+func (r *runState) close() {
+	if r.spill != nil {
+		_ = r.spill.Close()
+		r.spill = nil
+	}
+}
+
+func contains(xs []string, s string) bool {
+	for _, x := range xs {
+		if x == s {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *Result) record(formula string, row int, err error) {

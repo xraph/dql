@@ -232,6 +232,7 @@ Each formula sets either `expr` (one value per row) or `reduce` (one value for t
 |---|---|---|---|
 | `formulas` | array of object | yes | Named calculations, ordered by what they reference. |
 | `onError` | string |  | `fail` (default) aborts on the first evaluation error. `null` writes null into the failing cell and continues. Default: `fail`. |
+| `columnBudgetBytes` | integer |  | Caps the bytes of materialised columns held at once, spilling the least recently used beyond it. Leave unset unless the sheet reduces over many distinct columns that cannot be delegated to the source. |
 
 **Profit share**
 

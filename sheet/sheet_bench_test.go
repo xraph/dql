@@ -140,3 +140,47 @@ func sizeName(n int) string {
 	}
 	return "1k"
 }
+
+// BenchmarkRestoreVsRebuild checks the premise the spill file rests on: that
+// reading an evicted column back beats another pass over the row maps. If
+// rebuilding ever wins, the file is pure cost and the budget should simply
+// drop columns instead.
+func BenchmarkRestoreVsRebuild(b *testing.B) {
+	const n = 100_000
+	rows := benchRows(n, 10)
+
+	cb := NewColumnBuilder(n)
+	for _, r := range rows {
+		cb.Append(r["revenue"])
+	}
+	col := cb.Build()
+
+	st, err := newSpillStore()
+	if err != nil {
+		b.Fatalf("newSpillStore: %v", err)
+	}
+	defer func() { _ = st.Close() }()
+	if !st.Put("revenue", col) {
+		b.Fatal("Put refused")
+	}
+
+	b.Run("restore", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			if _, ok := st.Get("revenue"); !ok {
+				b.Fatal("Get missed")
+			}
+		}
+	})
+
+	b.Run("rebuild", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			cb := NewColumnBuilder(n)
+			for _, r := range rows {
+				cb.Append(r["revenue"])
+			}
+			_ = cb.Build()
+		}
+	})
+}

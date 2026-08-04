@@ -14,6 +14,10 @@ import (
 type SheetConfig struct {
 	Formulas []sheet.Formula `json:"formulas"`
 	OnError  string          `json:"onError,omitempty"`
+	// ColumnBudgetBytes caps the materialised columns held at once, spilling
+	// the least recently used past it. Zero, the default, keeps everything
+	// resident — see sheet.Config.
+	ColumnBudgetBytes int `json:"columnBudgetBytes,omitempty"`
 }
 
 type sheetOp struct {
@@ -58,7 +62,11 @@ func sheetFactory(raw json.RawMessage, octx *OpContext) (Operator, error) {
 	if octx == nil || octx.ExprCompiler == nil {
 		return nil, fmt.Errorf("sheet: requires %s in the OpContext", ReqExprCompiler)
 	}
-	s, err := sheet.Compile(sheet.Config{Formulas: cfg.Formulas, OnError: cfg.OnError}, octx.ExprCompiler)
+	s, err := sheet.Compile(sheet.Config{
+		Formulas:          cfg.Formulas,
+		OnError:           cfg.OnError,
+		ColumnBudgetBytes: cfg.ColumnBudgetBytes,
+	}, octx.ExprCompiler)
 	if err != nil {
 		return nil, err
 	}

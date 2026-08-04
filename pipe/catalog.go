@@ -451,9 +451,15 @@ var sheetMeta = OpMetadata{
 				"enum":        []string{"fail", "null"},
 				"default":     "fail",
 			},
+			"columnBudgetBytes": map[string]any{
+				"title":       "Column memory budget",
+				"description": "Caps the bytes of materialised columns held at once, spilling the least recently used beyond it. Leave unset unless the sheet reduces over many distinct columns that cannot be delegated to the source.",
+				"type":        "integer",
+				"minimum":     0,
+			},
 		},
 		"additionalProperties": false,
-		"x-dql-property-order": []string{"formulas", "onError"},
+		"x-dql-property-order": []string{"formulas", "onError", "columnBudgetBytes"},
 	},
 	Examples: []OpExample{{
 		Title: "Profit share",
