@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/xraph/dql/compare/v1.2.0...v1.2.1) (2026-08-04)
+
+### Documentation
+
+* note that the site checks the operator page itself ([0b7bf92](https://github.com/xraph/dql/commit/0b7bf922ad6bd7349f7f67422037dcc85971f1e6))
+* require an expression compiler for sheets rather than deriving references in DQL ([656fb22](https://github.com/xraph/dql/commit/656fb228c7663ecef12ee84e326d243e33e8a5e3))
+
 ## [1.2.0](https://github.com/xraph/dql/compare/v1.1.3...v1.2.0) (2026-08-04)
 
 ### Features
