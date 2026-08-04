@@ -119,9 +119,12 @@ func (s *Sheet) Apply(ctx context.Context, in []rowops.Row) (*Result, error) {
 	}
 
 	res := &Result{Rows: in, Scalars: make(map[string]any, len(s.order))}
-	// One args map, reused for every row of every formula. CompiledExpr is
-	// contractually forbidden from retaining it.
-	args := make(map[string]any, len(s.order)+8)
+	run := &runState{
+		// One args map, reused for every row of every formula. CompiledExpr is
+		// contractually forbidden from retaining it.
+		args:    make(map[string]any, len(s.order)+8),
+		columns: make(map[string]Column, len(s.order)),
+	}
 
 	for _, f := range s.order {
 		// Checked per formula rather than per row: one column's evaluation is
@@ -132,9 +135,9 @@ func (s *Sheet) Apply(ctx context.Context, in []rowops.Row) (*Result, error) {
 		}
 		var err error
 		if f.Kind() == KindReduce {
-			err = s.evalReduce(ctx, f, in, res, args)
+			err = s.evalReduce(ctx, f, in, run, res)
 		} else {
-			err = s.evalColumn(ctx, f, in, res, args)
+			err = s.evalColumn(ctx, f, in, run, res)
 		}
 		if err != nil {
 			return nil, err
@@ -143,9 +146,10 @@ func (s *Sheet) Apply(ctx context.Context, in []rowops.Row) (*Result, error) {
 	return res, nil
 }
 
-func (s *Sheet) evalColumn(ctx context.Context, f Formula, in []rowops.Row, res *Result, args map[string]any) error {
+func (s *Sheet) evalColumn(ctx context.Context, f Formula, in []rowops.Row, run *runState, res *Result) error {
 	ce := s.compiled[f.As]
 	refs := s.refs[f.As]
+	args := run.args
 
 	for i, row := range in {
 		for _, name := range refs {
@@ -169,9 +173,10 @@ func (s *Sheet) evalColumn(ctx context.Context, f Formula, in []rowops.Row, res 
 	return nil
 }
 
-func (s *Sheet) evalReduce(ctx context.Context, f Formula, in []rowops.Row, res *Result, args map[string]any) error {
+func (s *Sheet) evalReduce(ctx context.Context, f Formula, in []rowops.Row, run *runState, res *Result) error {
+	args := run.args
 	if k, colName, ok := s.kernelFor(f); ok {
-		col, err := s.columnFor(colName, in, res)
+		col, err := s.columnFor(colName, in, run, res)
 		if err != nil {
 			return err
 		}
@@ -239,16 +244,38 @@ func (s *Sheet) kernelFor(f Formula) (ReduceFunc, string, bool) {
 	return nil, "", false
 }
 
-// columnFor builds a typed Column from the named field of every row.
-func (s *Sheet) columnFor(name string, in []rowops.Row, res *Result) (Column, error) {
+// columnFor builds a typed Column from the named field of every row, caching
+// it for the rest of the run.
+//
+// Without the cache a sheet with several reduces over the same column rebuilt
+// it each time, and that construction cost dominated the scan the typed
+// backing was meant to make cheap — the kernel path measured slower than the
+// boxed one it replaced.
+//
+// The cache is keyed on the column not having changed since it was built,
+// which holds because a column formula writes its output once, in topological
+// order, before anything that reads it runs.
+func (s *Sheet) columnFor(name string, in []rowops.Row, run *runState, res *Result) (Column, error) {
 	if _, isScalar := res.Scalars[name]; isScalar {
 		return nil, fmt.Errorf("sheet: %q is a scalar, not a column", name)
+	}
+	if col, ok := run.columns[name]; ok {
+		return col, nil
 	}
 	b := NewColumnBuilder(len(in))
 	for _, row := range in {
 		b.Append(row[name])
 	}
-	return b.Build(), nil
+	col := b.Build()
+	run.columns[name] = col
+	return col, nil
+}
+
+// runState is the per-Apply scratch space: the argument map every expression
+// binds into, and the columns materialised so far.
+type runState struct {
+	args    map[string]any
+	columns map[string]Column
 }
 
 func (r *Result) record(formula string, row int, err error) {

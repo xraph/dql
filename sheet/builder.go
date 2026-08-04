@@ -24,9 +24,10 @@ const minBitmapGrowth = 64
 // that has seen mixed types stays boxed, because the alternative — re-narrowing
 // once the outlier passes — would mean rewriting the slice on every flip.
 type ColumnBuilder struct {
-	kind  backingKind
-	n     int
-	nulls *Bitmap
+	kind     backingKind
+	n        int
+	capacity int
+	nulls    *Bitmap
 
 	floats  []float64
 	strings []string
@@ -41,7 +42,18 @@ func NewColumnBuilder(capacity int) *ColumnBuilder {
 	if capacity < 0 {
 		capacity = 0
 	}
-	return &ColumnBuilder{nulls: NewBitmap(capacity)}
+	return &ColumnBuilder{capacity: capacity, nulls: NewBitmap(capacity)}
+}
+
+// alloc returns a slice of pad zero values with room for the full expected
+// column. The typed backing is not chosen until the first non-null value, so
+// this is the first point at which the caller's capacity hint can be spent —
+// without it a 100k-row column reallocates its way up through ~17 doublings.
+func (b *ColumnBuilder) allocLen(pad int) int {
+	if b.capacity > pad {
+		return b.capacity
+	}
+	return pad + 1
 }
 
 // Append adds one value. A nil value is recorded as null.
@@ -102,51 +114,31 @@ func (b *ColumnBuilder) growNulls() {
 	b.nulls = next
 }
 
-// adopt selects a backing from the first non-null value seen.
+// adopt selects a backing from the first non-null value seen, allocating it at
+// full expected capacity with the leading nulls already padded in — so index i
+// in the typed slice is row i, and no reallocation follows for a column that
+// stays within its hint.
 func (b *ColumnBuilder) adopt(v any, f float64, isNum bool) {
+	pad, size := b.n, b.allocLen(b.n)
+
 	if isNum {
 		b.kind = backingFloat
-		b.floats = append(b.floats, f)
-		b.backfill()
+		b.floats = append(make([]float64, pad, size), f)
 		return
 	}
 	switch x := v.(type) {
 	case string:
 		b.kind = backingString
-		b.strings = append(b.strings, x)
+		b.strings = append(make([]string, pad, size), x)
 	case bool:
 		b.kind = backingBool
-		b.bools = append(b.bools, x)
+		b.bools = append(make([]bool, pad, size), x)
 	case time.Time:
 		b.kind = backingTime
-		b.times = append(b.times, x)
+		b.times = append(make([]time.Time, pad, size), x)
 	default:
 		b.kind = backingAny
-		b.anys = append(b.anys, v)
-	}
-	b.backfill()
-}
-
-// backfill inserts zero values for the leading nulls recorded before a backing
-// was chosen, so index i in the typed slice is row i.
-func (b *ColumnBuilder) backfill() {
-	pad := b.n
-	if pad == 0 {
-		return
-	}
-	switch b.kind {
-	case backingFloat:
-		b.floats = append(make([]float64, pad), b.floats...)
-	case backingString:
-		b.strings = append(make([]string, pad), b.strings...)
-	case backingBool:
-		b.bools = append(make([]bool, pad), b.bools...)
-	case backingTime:
-		b.times = append(make([]time.Time, pad), b.times...)
-	case backingAny:
-		b.anys = append(make([]any, pad), b.anys...)
-	case backingUnset:
-		// Unreachable: backfill runs only after a backing is chosen.
+		b.anys = append(make([]any, pad, size), v)
 	}
 }
 
@@ -179,7 +171,7 @@ func (b *ColumnBuilder) demote() {
 	if b.kind == backingAny {
 		return
 	}
-	out := make([]any, 0, b.n+1)
+	out := make([]any, 0, b.allocLen(b.n))
 	for i := 0; i < b.n; i++ {
 		if b.nulls.Get(i) {
 			out = append(out, nil)
