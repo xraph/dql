@@ -1,3 +1,9 @@
+## [1.3.1](https://github.com/xraph/dql/compare/v1.3.0...v1.3.1) (2026-08-05)
+
+### Documentation
+
+* *sql.DB does not satisfy SQLQuerier on its own ([4cd0941](https://github.com/xraph/dql/commit/4cd09418bb86c533e3e67262d2d86df3d0564ce6))
+
 ## [1.3.0](https://github.com/xraph/dql/compare/v1.2.1...v1.3.0) (2026-08-04)
 
 ### Features
