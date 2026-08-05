@@ -93,13 +93,25 @@ working on a file with no host attached still sees the whole language.
 
 ## Bring your own database
 
-`exec.SQLQuerier` is deliberately the shape `database/sql` already has, so
-anything you already use satisfies it — including a pooled or instrumented
-wrapper:
+`exec.SQLQuerier` is modelled on `database/sql`, so anything shaped like it fits
+— including a pooled or instrumented wrapper:
 
 ```go
 type SQLQuerier interface {
 	Query(ctx context.Context, sql string, args ...any) (SQLRows, error)
+}
+```
+
+`*sql.DB` does not satisfy it directly: the standard library puts the context on
+`QueryContext`, and returns `*sql.Rows` where this returns an interface. Adapt
+it in five lines — `*sql.Rows` already satisfies `SQLRows`, so only the call
+needs wrapping:
+
+```go
+type sqlDB struct{ *sql.DB }
+
+func (d sqlDB) Query(ctx context.Context, q string, args ...any) (exec.SQLRows, error) {
+	return d.DB.QueryContext(ctx, q, args...)
 }
 ```
 
