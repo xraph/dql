@@ -1,0 +1,18 @@
+// cmd/dql-lsp is its own module so the library stays dependency-free: the
+// server needs a JSON-RPC stack, and nothing importing DQL should inherit it.
+//
+// That module used to reach the library through `replace ... => ../..`, which
+// made `go install github.com/xraph/dql/cmd/dql-lsp@latest` impossible — the
+// go command refuses to install a module carrying a replace directive, so the
+// documented way to obtain the server did not work at all.
+//
+// This workspace does the same job without that cost. Inside the repository
+// the server builds against the library beside it, so `make test` exercises
+// local changes; outside it, the module's own require line applies and the
+// server installs normally.
+go 1.26.0
+
+use (
+	.
+	./cmd/dql-lsp
+)

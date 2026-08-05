@@ -1,2 +1,4 @@
+github.com/xraph/dql v1.3.0 h1:GJVVnEtYHtVZ6zm3n7XkNtPT2jJBk50HtqI7h59DDB8=
+github.com/xraph/dql v1.3.0/go.mod h1:oTiYUPRS6g9A8a9mJNOq9sUjlUbOzCW7q7ocWKlo7cQ=
 github.com/xraph/langserver v1.0.0 h1:lAeftsRrO552eHf2Eqrl4clwYGGi80b8hpqXlqT0wUs=
 github.com/xraph/langserver v1.0.0/go.mod h1:3ySySdMwLscaNRhAHtE74SpQyPx780DMj+TxlM2O2hk=

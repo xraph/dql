@@ -7,3 +7,8 @@
 # binary behind in the package directory.
 *.test
 *.prof
+
+# go.work is committed — the LSP module needs it to build against the library
+# beside it. go.work.sum is not: nothing here requires it, and it is local
+# resolution state rather than something a checkout depends on.
+go.work.sum
