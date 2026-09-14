@@ -1,7 +1,21 @@
 name: Release
 
+# Two ways in. A green CI run on main hands the version to semantic-release,
+# which reads it off the conventional commits since the last tag. A manual run
+# with a version cuts exactly that version through scripts/release.sh, the same
+# script `make release VERSION=vX.Y.Z` runs on a laptop. A manual run without a
+# version is the semantic-release path started by hand.
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release exactly this version (vX.Y.Z). Leave empty to let semantic-release choose.'
+        type: string
+        default: ''
+      dry-run:
+        description: 'Compute and print the release without publishing anything.'
+        type: boolean
+        default: false
   workflow_run:
     workflows: ["CI"]
     types: [completed]
@@ -25,10 +39,60 @@ jobs:
     # default branch is also `main` — so a green CI run on a fork would otherwise
     # fire this release. The event and repository checks close that.
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
+      (github.event_name == 'workflow_dispatch' && inputs.version == '') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
        github.event.workflow_run.head_repository.full_name == github.repository)
     uses: xraph/workflows/.github/workflows/semantic-release.yml@v1
     with:
       warm-go-proxy: true
+      dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || false }}
+
+  release-version:
+    name: release ${{ inputs.version }}
+    if: github.event_name == 'workflow_dispatch' && inputs.version != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+
+      # The workflow_run path only releases what CI just verified. A manual
+      # version has no such run behind it, so ask for one on the tip of main
+      # instead of rebuilding the whole verify and test matrix here.
+      - name: Require a green CI run for the tip of main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse HEAD)
+          count=$(gh run list --workflow ci.yml --commit "$sha" --status success --json databaseId --jq 'length')
+          if [ "$count" = "0" ]; then
+            echo "::error::no successful CI run for $sha; push, wait for CI, then run this again"
+            exit 1
+          fi
+          echo "CI passed for $sha ($count run(s))"
+
+      - name: Configure the release author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Release the requested version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN" = "true" ]; then
+            scripts/release.sh "$VERSION" --dry-run
+          else
+            scripts/release.sh "$VERSION"
+          fi

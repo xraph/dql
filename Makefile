@@ -449,17 +449,18 @@ release-notes:
 	@./scripts/release.sh $(VERSION) --dry-run
 
 .PHONY: auto-release
-## auto-release: Trigger the Release workflow, which lets semantic-release choose the version (same as make release without VERSION)
+## auto-release: Run the Release workflow on GitHub (usage: make auto-release [VERSION=v1.2.3] [DRY_RUN=1]); with VERSION it cuts that version in CI, without it semantic-release chooses
 auto-release:
-	@if command -v gh >/dev/null 2>&1; then \
-		gh workflow run release.yml; \
-		echo "$(COLOR_GREEN)✓ Release workflow triggered$(COLOR_RESET)"; \
-		echo "$(COLOR_BLUE)For a specific version run: make release VERSION=v1.2.3$(COLOR_RESET)"; \
-	else \
+	@if ! command -v gh >/dev/null 2>&1; then \
 		echo "$(COLOR_RED)Error: GitHub CLI (gh) not found$(COLOR_RESET)"; \
 		echo "$(COLOR_YELLOW)Install with: brew install gh, or run the Release workflow from the Actions tab$(COLOR_RESET)"; \
 		exit 1; \
 	fi
+	@gh workflow run release.yml \
+		$(if $(filter command line,$(origin VERSION)),-f version=$(VERSION),) \
+		$(if $(DRY_RUN),-f dry-run=true,)
+	@echo "$(COLOR_GREEN)✓ Release workflow triggered$(if $(filter command line,$(origin VERSION)), for $(VERSION),)$(if $(DRY_RUN), (dry run),)$(COLOR_RESET)"
+	@echo "$(COLOR_BLUE)Progress: $$(git remote get-url origin | sed -E 's#^git@github\.com:#https://github.com/#; s#\.git$$##')/actions/workflows/release.yml$(COLOR_RESET)"
 
 .PHONY: releases
 ## releases: List recent releases

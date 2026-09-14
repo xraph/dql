@@ -187,6 +187,7 @@ Releases are cut by semantic-release from the conventional commits on `main`, so
 ```sh
 make release-notes VERSION=v1.4.0   # preview the changelog section
 make release VERSION=v1.4.0         # changelog commit, tag, push, GitHub release
+make auto-release VERSION=v1.4.0    # the same, run by the Release workflow on GitHub
 ```
 
-The explicit path writes the same changelog shape semantic-release does, commits it with `[skip ci]` so CI does not start a second release, tags that commit, pushes both, and creates the GitHub release from the section. If the tag already exists (from `make tag`), it stays where it is and only the changelog entry and the GitHub release are added behind it, because the Go module proxy may already have served that version. You need the GitHub CLI signed in for the last step.
+The explicit path writes the same changelog shape semantic-release does, commits it with `[skip ci]` so CI does not start a second release, tags that commit, pushes both, and creates the GitHub release from the section. If the tag already exists (from `make tag`), it stays where it is and only the changelog entry and the GitHub release are added behind it, because the Go module proxy may already have served that version. You need the GitHub CLI signed in for the last step. The Release workflow accepts the same version as an input, so `make auto-release VERSION=v1.4.0` (or the Actions tab) runs the identical script on a runner after checking that CI passed for the tip of `main`.
