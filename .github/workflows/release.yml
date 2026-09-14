@@ -50,9 +50,10 @@ jobs:
       dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run || false }}
 
   release-version:
-    name: release ${{ inputs.version }}
+    name: release the requested version
     if: github.event_name == 'workflow_dispatch' && inputs.version != ''
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: write
     steps:
@@ -64,20 +65,32 @@ jobs:
           fetch-tags: true
 
       # The workflow_run path only releases what CI just verified. A manual
-      # version has no such run behind it, so ask for one on the tip of main
-      # instead of rebuilding the whole verify and test matrix here.
-      - name: Require a green CI run for the tip of main
+      # version has no such run behind it, so find CI's run for the tip of
+      # main and wait for it rather than rebuilding the verify and test matrix
+      # here. Started right after a push, this sits until CI finishes; it only
+      # fails when CI failed or never ran for the commit.
+      - name: Wait for a green CI run on the tip of main
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           sha=$(git rev-parse HEAD)
-          count=$(gh run list --workflow ci.yml --commit "$sha" --status success --json databaseId --jq 'length')
-          if [ "$count" = "0" ]; then
-            echo "::error::no successful CI run for $sha; push, wait for CI, then run this again"
+          run_id=""
+          # The push that created this commit may still be queueing its CI run.
+          for attempt in $(seq 1 12); do
+            run_id=$(gh run list --workflow ci.yml --commit "$sha" --json databaseId,createdAt \
+              --jq 'sort_by(.createdAt) | last | .databaseId // empty')
+            [ -n "$run_id" ] && break
+            echo "no CI run for $sha yet (attempt $attempt of 12); waiting 10s"
+            sleep 10
+          done
+          if [ -z "$run_id" ]; then
+            echo "::error::CI never started for $sha; push the commit, let CI run, then run this again"
             exit 1
           fi
-          echo "CI passed for $sha ($count run(s))"
+          echo "CI run $run_id covers $sha; waiting for it to finish"
+          gh run watch "$run_id" --exit-status --interval 15
+          echo "CI passed for $sha"
 
       - name: Configure the release author
         run: |
