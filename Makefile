@@ -390,7 +390,7 @@ release-check: verify test
 	@echo "$(COLOR_GREEN)✓ Ready for release$(COLOR_RESET)"
 
 .PHONY: tag
-## tag: Create and push a new version tag (usage: make tag VERSION=v1.2.3)
+## tag: Create and push a bare version tag with no changelog entry or GitHub release; prefer make release VERSION=v1.2.3 (usage: make tag VERSION=v1.2.3)
 tag:
 	@if [ -z "$(VERSION)" ]; then \
 		echo "$(COLOR_RED)VERSION required. Usage: make tag VERSION=v1.2.3$(COLOR_RESET)"; \
@@ -415,41 +415,49 @@ tag-delete:
 	@echo "$(COLOR_GREEN)✓ Tag $(VERSION) deleted$(COLOR_RESET)"
 
 .PHONY: release
-## release: Full release process (checks, tag, and info)
-release: release-check
+## release: Release the module. With VERSION=vX.Y.Z it writes the changelog, tags and publishes that version; without one it hands the version to semantic-release in CI. Add DRY_RUN=1 to preview.
+release:
+ifeq ($(origin VERSION),command line)
+	@if [ -n "$(DRY_RUN)" ]; then \
+		./scripts/release.sh $(VERSION) --dry-run; \
+	else \
+		$(MAKE) --no-print-directory release-check && ./scripts/release.sh $(VERSION); \
+	fi
+else
+	@$(MAKE) --no-print-directory release-check
 	@echo ""
-	@echo "$(COLOR_BLUE)Ready to create a new release!$(COLOR_RESET)"
-	@echo ""
-	@echo "$(COLOR_GREEN)Current version:$(COLOR_RESET) $(VERSION)"
-	@echo "$(COLOR_GREEN)Latest tag:$(COLOR_RESET) $$(git describe --tags --abbrev=0 2>/dev/null || echo 'none')"
-	@echo ""
-	@echo "$(COLOR_YELLOW)To create a release:$(COLOR_RESET)"
-	@echo "  1. Choose version (e.g., v1.2.3)"
-	@echo "  2. Run: make auto-release VERSION=v1.2.3"
-	@echo "  3. Or manually: make tag VERSION=v1.2.3"
-	@echo ""
-	@echo "$(COLOR_BLUE)GitHub Release Workflow:$(COLOR_RESET)"
-	@echo "  - Triggers on new version tags (v*)"
-	@echo "  - Runs tests and linters"
-	@echo "  - Creates GitHub Release with changelog"
-	@echo "  - Publishes package documentation"
-
-.PHONY: auto-release
-## auto-release: Trigger automated release workflow (usage: make auto-release VERSION=v1.2.3)
-auto-release:
-	@if [ -z "$(VERSION)" ]; then \
-		echo "$(COLOR_RED)VERSION required. Usage: make auto-release VERSION=v1.2.3$(COLOR_RESET)"; \
+	@echo "$(COLOR_BLUE)Latest tag:$(COLOR_RESET) $$(git describe --tags --abbrev=0 2>/dev/null || echo 'none')"
+	@echo "$(COLOR_BLUE)No VERSION given, so semantic-release picks the next one from the commits since that tag.$(COLOR_RESET)"
+	@if [ -n "$(DRY_RUN)" ]; then \
+		echo "$(COLOR_YELLOW)Dry run: would trigger the Release workflow. Pass VERSION=vX.Y.Z to release a specific version.$(COLOR_RESET)"; \
+	elif command -v gh >/dev/null 2>&1; then \
+		gh workflow run release.yml && echo "$(COLOR_GREEN)✓ Release workflow triggered$(COLOR_RESET)"; \
+		echo "$(COLOR_BLUE)Progress: $$(git remote get-url origin | sed -E 's#^git@github\.com:#https://github.com/#; s#\.git$$##')/actions$(COLOR_RESET)"; \
+	else \
+		echo "$(COLOR_RED)GitHub CLI (gh) not found. Install it (brew install gh) or run the Release workflow from the Actions tab.$(COLOR_RESET)"; \
 		exit 1; \
 	fi
-	@echo "$(COLOR_GREEN)Triggering automated release for $(VERSION)...$(COLOR_RESET)"
+endif
+
+.PHONY: release-notes
+## release-notes: Preview the changelog section a release would write (usage: make release-notes VERSION=v1.2.3)
+release-notes:
+	@if [ -z "$(filter command line,$(origin VERSION))" ]; then \
+		echo "$(COLOR_RED)VERSION required. Usage: make release-notes VERSION=v1.2.3$(COLOR_RESET)"; \
+		exit 1; \
+	fi
+	@./scripts/release.sh $(VERSION) --dry-run
+
+.PHONY: auto-release
+## auto-release: Trigger the Release workflow, which lets semantic-release choose the version (same as make release without VERSION)
+auto-release:
 	@if command -v gh >/dev/null 2>&1; then \
-		gh workflow run auto-release.yml -f version=$(VERSION); \
+		gh workflow run release.yml; \
 		echo "$(COLOR_GREEN)✓ Release workflow triggered$(COLOR_RESET)"; \
-		echo "$(COLOR_BLUE)View progress: https://github.com/$$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')/actions$(COLOR_RESET)"; \
+		echo "$(COLOR_BLUE)For a specific version run: make release VERSION=v1.2.3$(COLOR_RESET)"; \
 	else \
 		echo "$(COLOR_RED)Error: GitHub CLI (gh) not found$(COLOR_RESET)"; \
-		echo "$(COLOR_YELLOW)Install with: brew install gh$(COLOR_RESET)"; \
-		echo "$(COLOR_YELLOW)Or use GitHub UI: Actions → Auto Release → Run workflow$(COLOR_RESET)"; \
+		echo "$(COLOR_YELLOW)Install with: brew install gh, or run the Release workflow from the Actions tab$(COLOR_RESET)"; \
 		exit 1; \
 	fi
 
