@@ -1,3 +1,9 @@
+## [1.3.2](https://github.com/xraph/dql/compare/v1.3.1...v1.3.2) (2026-09-14)
+
+### Features
+
+* **dsl:** carry source metadata on QueryResult ([6d29965](https://github.com/xraph/dql/commit/6d29965f1312518a084062a72722167233516c14))
+
 ## [1.3.1](https://github.com/xraph/dql/compare/v1.3.0...v1.3.1) (2026-08-05)
 
 ### Documentation
