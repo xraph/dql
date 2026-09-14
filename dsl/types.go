@@ -377,13 +377,15 @@ type Row = map[string]any
 //	  "stats": {...}
 //	}
 type QueryResult struct {
-	Rows     []Row        `json:"rows"`
-	Columns  []ColumnInfo `json:"columns"`
-	Total    *int         `json:"total,omitempty"`
-	Page     *int         `json:"page,omitempty"`
-	PageSize *int         `json:"page_size,omitempty"`
-	HasMore  bool         `json:"has_more"`
-	Stats    QueryStats   `json:"stats"`
+	// Metadata preserves source diagnostics independently of projected rows.
+	Metadata map[string]any `json:"metadata,omitempty"`
+	Rows     []Row          `json:"rows"`
+	Columns  []ColumnInfo   `json:"columns"`
+	Total    *int           `json:"total,omitempty"`
+	Page     *int           `json:"page,omitempty"`
+	PageSize *int           `json:"page_size,omitempty"`
+	HasMore  bool           `json:"has_more"`
+	Stats    QueryStats     `json:"stats"`
 }
 
 // NewQueryResult builds a QueryResult containing the given rows. Total is set
