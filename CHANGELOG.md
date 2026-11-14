@@ -1,3 +1,9 @@
+## [1.3.3](https://github.com/xraph/dql/compare/v1.3.2...v1.3.3) (2026-11-14)
+
+### Features
+
+* **dsl:** add case-insensitive icontains, istarts_with and iends_with ops ([afa4d58](https://github.com/xraph/dql/commit/afa4d589e9ca2cafd275d64c631ca23d2d90f57d))
+
 ## [1.3.2](https://github.com/xraph/dql/compare/v1.3.1...v1.3.2) (2026-09-14)
 
 ### Features
