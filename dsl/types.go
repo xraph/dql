@@ -320,11 +320,16 @@ type OrderByClause struct {
 // don't have to know SQL `%` conventions and can't smuggle wildcards
 // they didn't mean (a `_` in a slug doesn't accidentally become a
 // single-char wildcard).
+//
+// icontains / istarts_with / iends_with are the case-insensitive forms
+// of the same three, with the same literal-value semantics. SQL renders
+// them as ILIKE; the in-memory processor folds case for both forms.
 var ValidWhereOps = map[string]bool{
 	"==": true, "!=": true, ">": true, "<": true, ">=": true, "<=": true,
 	"in": true, "not_in": true,
 	"like": true, "not_like": true,
 	"starts_with": true, "ends_with": true, "contains": true,
+	"istarts_with": true, "iends_with": true, "icontains": true,
 	"is_null": true, "is_not_null": true, "between": true,
 }
 

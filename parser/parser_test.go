@@ -132,6 +132,10 @@ func TestValidate_WhereOps(t *testing.T) {
 		{"is_null", false},
 		{"is_not_null", false},
 		{"between", false},
+		{"contains", false},
+		{"icontains", false},
+		{"istarts_with", false},
+		{"iends_with", false},
 		{"invalid_op", true},
 	}
 
