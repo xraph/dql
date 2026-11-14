@@ -255,11 +255,17 @@ func (g *sqlGen) writeSimpleCondition(w *dsl.WhereClause) {
 	case "between":
 		g.writeBetweenCondition(col, w.Value)
 	case "starts_with":
-		g.writeAffixCondition(col, w.Value, "", "%")
+		g.writeAffixCondition(col, "LIKE", w.Value, "", "%")
 	case "ends_with":
-		g.writeAffixCondition(col, w.Value, "%", "")
+		g.writeAffixCondition(col, "LIKE", w.Value, "%", "")
 	case "contains":
-		g.writeAffixCondition(col, w.Value, "%", "%")
+		g.writeAffixCondition(col, "LIKE", w.Value, "%", "%")
+	case "istarts_with":
+		g.writeAffixCondition(col, "ILIKE", w.Value, "", "%")
+	case "iends_with":
+		g.writeAffixCondition(col, "ILIKE", w.Value, "%", "")
+	case "icontains":
+		g.writeAffixCondition(col, "ILIKE", w.Value, "%", "%")
 	default:
 		sqlOp, ok := dsl.SQLOpMap[w.Op]
 		if !ok {
@@ -274,12 +280,16 @@ func (g *sqlGen) writeSimpleCondition(w *dsl.WhereClause) {
 // literal: any `%` or `_` it contains is escaped (with `\`) before the
 // wildcards are appended, and the rendered SQL uses `ESCAPE '\'` so
 // the literal pattern is interpreted correctly.
-func (g *sqlGen) writeAffixCondition(col string, value any, prefix, suffix string) {
+//
+// likeOp is "LIKE" for the case-sensitive ops and "ILIKE" for their
+// i-prefixed forms. The generator only emits PostgreSQL, where ILIKE
+// honours the same ESCAPE clause.
+func (g *sqlGen) writeAffixCondition(col, likeOp string, value any, prefix, suffix string) {
 	literal := fmt.Sprintf("%v", value)
 	literal = strings.ReplaceAll(literal, `\`, `\\`)
 	literal = strings.ReplaceAll(literal, "%", `\%`)
 	literal = strings.ReplaceAll(literal, "_", `\_`)
-	g.buf.WriteString(col + " LIKE " + g.placeholder(prefix+literal+suffix) + ` ESCAPE '\'`)
+	g.buf.WriteString(col + " " + likeOp + " " + g.placeholder(prefix+literal+suffix) + ` ESCAPE '\'`)
 }
 
 func (g *sqlGen) writeInCondition(col string, value any, negate bool) {

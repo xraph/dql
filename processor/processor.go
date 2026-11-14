@@ -228,11 +228,13 @@ func evalSimpleCondition(w *dsl.WhereClause, row dsl.Row) bool {
 			return !match
 		}
 		return match
-	case "starts_with":
+	// The affix ops already fold case here; their i-prefixed forms, which
+	// differ only in SQL (LIKE vs ILIKE), share the same evaluation.
+	case "starts_with", "istarts_with":
 		return strings.HasPrefix(strings.ToLower(fmt.Sprintf("%v", val)), strings.ToLower(fmt.Sprintf("%v", w.Value)))
-	case "ends_with":
+	case "ends_with", "iends_with":
 		return strings.HasSuffix(strings.ToLower(fmt.Sprintf("%v", val)), strings.ToLower(fmt.Sprintf("%v", w.Value)))
-	case "contains":
+	case "contains", "icontains":
 		return strings.Contains(strings.ToLower(fmt.Sprintf("%v", val)), strings.ToLower(fmt.Sprintf("%v", w.Value)))
 	case "in":
 		return valueIn(val, w.Value)
